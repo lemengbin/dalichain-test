@@ -2,10 +2,6 @@ srcdir=.
 
 LOCAL_INCLUDE = -I$(srcdir)
 
-#CA_OBJ = ca/ca.o \
-          ca/camempool.o \
-          ca/revokedb.o
-
 COMPRESS_INCLUDE = -I$(srcdir)/compress/include
 COMPRESS_OBJ = compress/CompressAlgorithmBase.o \
                compress/LZ4Compress.o \
@@ -13,25 +9,6 @@ COMPRESS_OBJ = compress/CompressAlgorithmBase.o \
                compress/ZLIBCompress.o
 
 CONFIG_INCLUDE = -I$(srcdir)/config
-
-#CONTRACT_INCLUDE = -I$(srcdir)/contract
-#CONTRACT_OBJ = contract/db/contractdb.o \
-                  contract/attachentry.o \
-                  contract/checker.o \
-                  contract/contractaddress.o \
-                  contract/contractcallandrettxcontainer.o \
-                  contract/contractcode.o \
-                  contract/contractdispatcher.o \
-                  contract/contractstatecontainer.o \
-                  contract/contracttxqueue.o \
-                  contract/contracttxretqueue.o \
-                  contract/contractunfinishtxqueue.o \
-                  contract/contractv8api.o \
-                  contract/rpccontract.o \
-                  contract/state.o \
-                  contract/storageentry.o \
-                  contract/transactionreceipt.o \
-                  contract/VMContext.o
 
 CRYPTO_OBJ = crypto/aes.o \
              crypto/hmac_sha256.o \
