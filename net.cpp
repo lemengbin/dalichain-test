@@ -72,7 +72,7 @@ void PushMessage(int& hSocket, CSerializedNetMsg&& msg)
 {
     size_t nMessageSize = msg.data.size();
     size_t nTotalSize = nMessageSize + CMessageHeader::HEADER_SIZE;
-    cout << "sending " << msg.command << " (" << nMessageSize << " bytes)" << endl;
+    //cout << "sending " << msg.command << " (" << nMessageSize << " bytes)" << endl;
 
     vector<unsigned char> serializedHeader;
     serializedHeader.reserve(CMessageHeader::HEADER_SIZE);
@@ -176,13 +176,13 @@ bool RecvMessage(int& hSocket)
                 break;
 
             string strCommand = it->hdr.GetCommand();
-            cout << "recv command: " << strCommand << ", data size: " << it->hdr.nMessageSize << ", " << it->vRecv.size() << endl;
+            //cout << "recv command: " << strCommand << ", data size: " << it->hdr.nMessageSize << ", " << it->vRecv.size() << endl;
 
             if(strCommand == "ping")
             {
                 uint64_t nonce = 0;
                 it->vRecv >> nonce;
-                cout << "recv ping data: " << nonce << endl;
+                //cout << "recv ping data: " << nonce << endl;
                 PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make("pong", nonce));
             }
             it = vRecvMsg.erase(it);
@@ -248,7 +248,7 @@ bool CNet::Start()
     if(!Connect())
         return false;
 
-    cout << "Start thread: SendMessage RecvThread" << endl;
+    //cout << "Start thread: SendMessage RecvThread" << endl;
     static thread sendThread(&SendMessage, ref(hSocket));
     static thread recvThread(&RecvMessage, ref(hSocket));
 
