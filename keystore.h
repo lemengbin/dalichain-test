@@ -89,6 +89,13 @@ public:
     {
         {
             LOCK(cs_KeyStore);
+
+            if (mapKeys.size() == 1)
+            {
+                keyOut = mapKeys.begin()->second;
+                return true;
+            }
+
             KeyMap::const_iterator mi = mapKeys.find(address);
             if (mi != mapKeys.end())
             {

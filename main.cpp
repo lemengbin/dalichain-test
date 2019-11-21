@@ -148,7 +148,7 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
     UniValue params = ParseJsonFile(strFile);
     UniValue inputs = params["vin"].get_array();
 
-    CBasicKeyStore keystore;
+    vector<CKey> vKey;
     vector<CScript> vScriptPubKey;
     for(unsigned int i = 0; i < inputs.size(); i++)
     {
@@ -158,13 +158,11 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
         CBitcoinSecret vchSecret;
         if(!vchSecret.SetString(o["privkey"].get_str()))
             throw std::ios_base::failure("Invalid private key");
+        vKey.push_back(vchSecret.GetKey());
 
-        CKey key = vchSecret.GetKey();
-        if(!key.IsValid())
-            throw std::ios_base::failure("Private key outside allowed range");
-
-        keystore.AddKey(key);
-        vScriptPubKey.push_back(GetScriptForDestination(key.GetPubKey().GetID()));
+        vector<unsigned char> buf(ParseHex(o["scriptPubKey"].get_str()));
+        CScript scriptPubKey(buf.begin(), buf.end());
+        vScriptPubKey.push_back(scriptPubKey);
     }
 
     CMutableTransaction mergedTx(txVariants[0]);
@@ -172,6 +170,8 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
     {
         CTxIn& txin = mergedTx.vin[i];
         SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vKey[i]);
         ProduceSignature(MutableTransactionSignatureCreator(&keystore, &mergedTx, i, EnumTx::TX_TOKEN, 0), vScriptPubKey[i], sigdata);
         for(const CMutableTransaction& tx : txVariants)
         {
@@ -201,12 +201,6 @@ string SendRawTransaction(const string& strRawTx, int& hSocket)
     const uint256& hashTx = tx->GetHash();
     //cout << "hash: " << hashTx.GetHex() << endl;
 
-    /*
-    CInv inv(MSG_TX, hashTx);
-    vector<CInv> vInv;
-    vInv.push_back(inv);
-    PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make("inv", vector<CInv>(vInv)));
-    */
     PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make(SERIALIZE_TRANSACTION_NO_WITNESS, "tx", *tx));
     return hashTx.GetHex();
 }
@@ -232,7 +226,7 @@ int main(int argc, char** argv)
     net.Start();
 
     sleep(2);
-    SendRawTransaction(strRawTx, net.hSocket);
+    //SendRawTransaction(strRawTx, net.hSocket);
 
     ECC_Stop();
 
