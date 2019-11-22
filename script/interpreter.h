@@ -123,7 +123,34 @@ enum SigVersion
 
 uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CAmount& amount, SigVersion sigversion, EnumTx nInType, const PrecomputedTransactionData* cache = NULL);
 
-bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, /*const BaseSignatureChecker& checker, */SigVersion sigversion/*, ScriptError* error = NULL,bool isCheckBlock = false*/);
+class BaseSignatureChecker
+{
+public:
+    virtual bool CheckContract(const std::vector<unsigned char>& vchContractHash, std::vector<unsigned char>& vchContractAddress) const
+    {
+         return false;
+    }
+
+    virtual ~BaseSignatureChecker() {}
+};
+
+class TransactionSignatureChecker : public BaseSignatureChecker
+{
+private:
+    const CTransaction* txTo;
+    unsigned int nIn;
+    EnumTx nInType;
+    const CAmount amount;
+    const PrecomputedTransactionData* txdata;
+
+public:
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, EnumTx nInTypeIn, const CAmount& amountIn) : txTo(txToIn), nIn(nInIn), nInType(nInTypeIn), amount(amountIn), txdata(NULL) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, EnumTx nInTypeIn, const CAmount& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), nInType(nInTypeIn), amount(amountIn), txdata(&txdataIn) {}
+    EnumTx GetInType() const { return nInType;}
+    bool CheckContract(const std::vector<unsigned char>& vchContractHash, std::vector<unsigned char>& vchContractAddress) const;
+};
+
+bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion);
 
 size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags);
 

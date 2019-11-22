@@ -1,5 +1,10 @@
-#ifndef SCRIPT_H
-#define SCRIPT_H
+// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2009-2016 The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITCOIN_SCRIPT_SCRIPT_H
+#define BITCOIN_SCRIPT_SCRIPT_H
 
 #include "crypto/common.h"
 #include "prevector.h"
@@ -35,6 +40,7 @@ std::vector<unsigned char> ToByteVector(const T& in)
     return std::vector<unsigned char>(in.begin(), in.end());
 }
 
+/** Script opcodes */
 enum opcodetype
 {
     // push value
@@ -195,14 +201,14 @@ public:
 
 class CScriptNum
 {
-    /**
-     * Numeric opcodes (OP_1ADD, etc) are restricted to operating on 4-byte integers.
-     * The semantics are subtle, though: operands must be in the range [-2^31 +1...2^31 -1],
-     * but results may overflow (and are valid as long as they are not used in a subsequent
-     * numeric operation). CScriptNum enforces those semantics by storing results as
-     * an int64 and allowing out-of-range values to be returned as a vector of bytes but
-     * throwing an exception if arithmetic is done or the result is interpreted as an integer.
-     */
+/**
+ * Numeric opcodes (OP_1ADD, etc) are restricted to operating on 4-byte integers.
+ * The semantics are subtle, though: operands must be in the range [-2^31 +1...2^31 -1],
+ * but results may overflow (and are valid as long as they are not used in a subsequent
+ * numeric operation). CScriptNum enforces those semantics by storing results as
+ * an int64 and allowing out-of-range values to be returned as a vector of bytes but
+ * throwing an exception if arithmetic is done or the result is interpreted as an integer.
+ */
 public:
 
     explicit CScriptNum(const int64_t& n)
@@ -213,7 +219,7 @@ public:
     static const size_t nDefaultMaxNumSize = 4;
 
     explicit CScriptNum(const std::vector<unsigned char>& vch, bool fRequireMinimal,
-            const size_t nMaxNumSize = nDefaultMaxNumSize)
+                        const size_t nMaxNumSize = nDefaultMaxNumSize)
     {
         if (vch.size() > nMaxNumSize) {
             throw scriptnum_error("script number overflow");
@@ -281,7 +287,7 @@ public:
     inline CScriptNum& operator+=( const int64_t& rhs)
     {
         assert(rhs == 0 || (rhs > 0 && m_value <= std::numeric_limits<int64_t>::max() - rhs) ||
-                (rhs < 0 && m_value >= std::numeric_limits<int64_t>::min() - rhs));
+                           (rhs < 0 && m_value >= std::numeric_limits<int64_t>::min() - rhs));
         m_value += rhs;
         return *this;
     }
@@ -289,7 +295,7 @@ public:
     inline CScriptNum& operator-=( const int64_t& rhs)
     {
         assert(rhs == 0 || (rhs > 0 && m_value >= std::numeric_limits<int64_t>::min() + rhs) ||
-                (rhs < 0 && m_value <= std::numeric_limits<int64_t>::max() + rhs));
+                           (rhs < 0 && m_value <= std::numeric_limits<int64_t>::max() + rhs));
         m_value -= rhs;
         return *this;
     }
@@ -370,6 +376,7 @@ private:
 
 typedef prevector<28, unsigned char> CScriptBase;
 
+/** Serialized script, used inside transaction inputs and outputs */
 class CScript : public CScriptBase
 {
 protected:
@@ -621,7 +628,6 @@ public:
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
 
     /* check script is contract*/
-    /*
     bool IsContractOutput() const;
     bool IsContractHashMatched(const char *pHash) const;
     bool IsContractAddress() const;
@@ -629,7 +635,6 @@ public:
     bool IsPayToRealNamePubkeyHash() const;
     bool IsRealNameAppendHash() const;
     bool IsRealNameContract() const;
-    */
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;
@@ -654,8 +659,11 @@ public:
 
 struct CScriptWitness
 {
+    // Note that this encodes the data elements being pushed, rather than
+    // encoding them as a CScript that pushes them.
     std::vector<std::vector<unsigned char> > stack;
 
+    // Some compilers complain without a default constructor
     CScriptWitness() { }
 
     bool IsNull() const { return stack.empty(); }
@@ -665,4 +673,13 @@ struct CScriptWitness
     std::string ToString() const;
 };
 
-#endif
+class CReserveScript
+{
+public:
+    CScript reserveScript;
+    virtual void KeepScript() {}
+    CReserveScript() {}
+    virtual ~CReserveScript() {}
+};
+
+#endif // BITCOIN_SCRIPT_SCRIPT_H

@@ -167,6 +167,7 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
     }
 
     CMutableTransaction mergedTx(txVariants[0]);
+    const CTransaction txConst(mergedTx);
     for(unsigned int i = 0; i < mergedTx.vin.size(); i++)
     {
         CTxIn& txin = mergedTx.vin[i];
@@ -177,7 +178,7 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
         for(const CMutableTransaction& tx : txVariants)
         {
             if(tx.vin.size() > i)
-                sigdata = CombineSignatures(vScriptPubKey[i], sigdata, DataFromTransaction(tx, i));
+                sigdata = CombineSignatures(vScriptPubKey[i], TransactionSignatureChecker(&txConst, i, EnumTx::TX_TOKEN, 0), sigdata, DataFromTransaction(tx, i));
         }
         UpdateTransaction(mergedTx, i, sigdata);
     }

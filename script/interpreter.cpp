@@ -21,11 +21,11 @@
 // #include <boost/foreach.hpp>
 // #include <boost/assign/list_of.hpp>
 #include "utilstrencodings.h"
-//#include "ca/ca.h"
+#include "ca.h"
 //#include "ca/camempool.h"
 
-//#include "contract/contractcode.h"
-//#include "attachinfo.h"
+#include "contract/contractcode.h"
+#include "attachinfo.h"
 
 using namespace std;
 
@@ -61,189 +61,7 @@ static inline void popstack(vector<valtype>& stack)
     stack.pop_back();
 }
 
-bool static IsCompressedOrUncompressedPubKey(const valtype &vchPubKey) {
-    if (vchPubKey.size() < 33) {
-        //  Non-canonical public key: too short
-        return false;
-    }
-    if (vchPubKey[0] == 0x04) {
-        if (vchPubKey.size() != 65) {
-            //  Non-canonical public key: invalid length for uncompressed key
-            return false;
-        }
-    } else if (vchPubKey[0] == 0x02 || vchPubKey[0] == 0x03) {
-        if (vchPubKey.size() != 33) {
-            //  Non-canonical public key: invalid length for compressed key
-            return false;
-        }
-    } else {
-        //  Non-canonical public key: neither compressed nor uncompressed
-        return false;
-    }
-    return true;
-}
-
-bool static IsCompressedPubKey(const valtype &vchPubKey) {
-    if (vchPubKey.size() != 33) {
-        //  Non-canonical public key: invalid length for compressed key
-        return false;
-    }
-    if (vchPubKey[0] != 0x02 && vchPubKey[0] != 0x03) {
-        //  Non-canonical public key: invalid prefix for compressed key
-        return false;
-    }
-    return true;
-}
-
-/**
- * A canonical signature exists of: <30> <total len> <02> <len R> <R> <02> <len S> <S> <hashtype>
- * Where R and S are not negative (their first byte has its highest bit not set), and not
- * excessively padded (do not start with a 0 byte, unless an otherwise negative number follows,
- * in which case a single 0 byte is necessary and even required).
- *
- * See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
- *
- * This function is consensus-critical since BIP66.
- */
-bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
-    // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S] [sighash]
-    // * total-length: 1-byte length descriptor of everything that follows,
-    //   excluding the sighash byte.
-    // * R-length: 1-byte length descriptor of the R value that follows.
-    // * R: arbitrary-length big-endian encoded R value. It must use the shortest
-    //   possible encoding for a positive integers (which means no null bytes at
-    //   the start, except a single one when the next byte has its highest bit set).
-    // * S-length: 1-byte length descriptor of the S value that follows.
-    // * S: arbitrary-length big-endian encoded S value. The same rules apply.
-    // * sighash: 1-byte value indicating what data is hashed (not part of the DER
-    //   signature)
-
-    // Minimum and maximum size constraints.
-    if (sig.size() < 9) return false;
-    if (sig.size() > 73) return false;
-
-    // A signature is of type 0x30 (compound).
-    if (sig[0] != 0x30) return false;
-
-    // Make sure the length covers the entire signature.
-    if (sig[1] != sig.size() - 3) return false;
-
-    // Extract the length of the R element.
-    unsigned int lenR = sig[3];
-
-    // Make sure the length of the S element is still inside the signature.
-    if (5 + lenR >= sig.size()) return false;
-
-    // Extract the length of the S element.
-    unsigned int lenS = sig[5 + lenR];
-
-    // Verify that the length of the signature matches the sum of the length
-    // of the elements.
-    if ((size_t)(lenR + lenS + 7) != sig.size()) return false;
-
-    // Check whether the R element is an integer.
-    if (sig[2] != 0x02) return false;
-
-    // Zero-length integers are not allowed for R.
-    if (lenR == 0) return false;
-
-    // Negative numbers are not allowed for R.
-    if (sig[4] & 0x80) return false;
-
-    // Null bytes at the start of R are not allowed, unless R would
-    // otherwise be interpreted as a negative number.
-    if (lenR > 1 && (sig[4] == 0x00) && !(sig[5] & 0x80)) return false;
-
-    // Check whether the S element is an integer.
-    if (sig[lenR + 4] != 0x02) return false;
-
-    // Zero-length integers are not allowed for S.
-    if (lenS == 0) return false;
-
-    // Negative numbers are not allowed for S.
-    if (sig[lenR + 6] & 0x80) return false;
-
-    // Null bytes at the start of S are not allowed, unless S would otherwise be
-    // interpreted as a negative number.
-    if (lenS > 1 && (sig[lenR + 6] == 0x00) && !(sig[lenR + 7] & 0x80)) return false;
-
-    return true;
-}
-
-bool static IsLowDERSignature(const valtype &vchSig) {
-    if (!IsValidSignatureEncoding(vchSig)) {
-        return false;
-    }
-    std::vector<unsigned char> vchSigCopy(vchSig.begin(), vchSig.begin() + vchSig.size() - 1);
-    if (!CPubKey::CheckLowS(vchSigCopy)) {
-        return false;
-    }
-    return true;
-}
-
-bool static IsDefinedHashtypeSignature(const valtype &vchSig) {
-    if (vchSig.size() == 0) {
-        return false;
-    }
-    unsigned char nHashType = vchSig[vchSig.size() - 1] & (~(SIGHASH_ANYONECANPAY));
-    if (nHashType < SIGHASH_ALL || nHashType > SIGHASH_SINGLE)
-        return false;
-
-    return true;
-}
-
-bool CheckSignatureEncoding(const vector<unsigned char> &vchSig, unsigned int flags) {
-    // Empty signature. Not strictly DER encoded, but allowed to provide a
-    // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-    if (vchSig.size() == 0) {
-        return true;
-    }
-    if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 && !IsValidSignatureEncoding(vchSig)) {
-        return false;
-    } else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig)) {
-        // serror is set
-        return false;
-    } else if ((flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSig)) {
-        return false;
-    }
-    return true;
-}
-
-bool static CheckPubKeyEncoding(const valtype &vchPubKey, unsigned int flags, const SigVersion &sigversion) {
-    if ((flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsCompressedOrUncompressedPubKey(vchPubKey)) {
-        return false;
-    }
-    // Only compressed keys are accepted in segwit
-    if ((flags & SCRIPT_VERIFY_WITNESS_PUBKEYTYPE) != 0 && sigversion == SIGVERSION_WITNESS_V0 && !IsCompressedPubKey(vchPubKey)) {
-        return false;
-    }
-    return true;
-}
-
-bool static CheckMinimalPush(const valtype& data, opcodetype opcode) {
-    if (data.size() == 0) {
-        // Could have used OP_0.
-        return opcode == OP_0;
-    } else if (data.size() == 1 && data[0] >= 1 && data[0] <= 16) {
-        // Could have used OP_1 .. OP_16.
-        return opcode == OP_1 + (data[0] - 1);
-    } else if (data.size() == 1 && data[0] == 0x81) {
-        // Could have used OP_1NEGATE.
-        return opcode == OP_1NEGATE;
-    } else if (data.size() <= 75) {
-        // Could have used a direct push (opcode indicating number of bytes pushed + those bytes).
-        return opcode == data.size();
-    } else if (data.size() <= 255) {
-        // Could have used OP_PUSHDATA.
-        return opcode == OP_PUSHDATA1;
-    } else if (data.size() <= 65535) {
-        // Could have used OP_PUSHDATA2.
-        return opcode == OP_PUSHDATA2;
-    }
-    return true;
-}
-
-bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, unsigned int flags, /*const BaseSignatureChecker& checker, */SigVersion sigversion/*, ScriptError* error, bool isCheckBlock*/)
+bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion)
 {
     static const CScriptNum bnZero(0);
     static const CScriptNum bnOne(1);
@@ -303,9 +121,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 return false; // Disabled opcodes.
 
             if (fExec && 0 <= opcode && opcode <= OP_PUSHDATA4) {
-                if (fRequireMinimal && !CheckMinimalPush(vchPushValue, opcode)) {
-                    return false;
-                }
                 stack.push_back(vchPushValue);
             } else if (fExec || (OP_IF <= opcode && opcode <= OP_ENDIF))
             switch (opcode)
@@ -381,12 +196,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     if (nLockTime < 0)
                         return false;
 
-                    // Actually compare the specified lock time with the transaction.
-                    /*
-                    if (!checker.CheckLockTime(nLockTime))
-                        return false;
-                    */
-
                     break;
                 }
 
@@ -420,12 +229,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     if ((nSequence & CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0)
                         break;
 
-                    // Compare the specified sequence number with the input.
-                    /*
-                    if (!checker.CheckSequence(nSequence))
-                        return false;
-                    */
-
                     break;
                 }
 
@@ -437,16 +240,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     {
                         return false;
                     }
-
-                    valtype& vchSig = stacktop(-2);
-                    valtype& vchPubKeyHash = stacktop(-1);
-
-                    /*
-                    bool fOk = checker.CheckRealNameSig(vchSig, vchPubKeyHash, script, sigversion, isCheckBlock);
-                    if (!fOk) {
-                        return false;
-                    }
-                    */
                     popstack(stack);
                     //popstack(stack);
                 }
@@ -889,11 +682,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         CSHA256().Write(vch.data(), vch.size()).Finalize(vchHash.data());
                     else if (opcode == OP_HASH160)
                     {
-                        /*
                         if (script.IsRealNameContract())
                             break;
                         else
-                        */
                             CHash160().Write(vch.data(), vch.size()).Finalize(vchHash.data());
                     }
                     else if (opcode == OP_HASH256)
@@ -927,29 +718,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         scriptCode.FindAndDelete(CScript(vchSig));
                     }
 
-                    bool fSuccess = false;
-                    /*
-                    if (scriptCode.IsRealNameContract())
-                    {
-                        fSuccess = checker.CheckRealNameSig(vchSig, vchPubKey, scriptCode, sigversion, false);
-                    }
-                    else
-                    {
-                    */
-                        if (!CheckSignatureEncoding(vchSig, flags) || !CheckPubKeyEncoding(vchPubKey, flags, sigversion))
-                        {
-                            //serror is set
-                            return false;
-                        }
-                        //fSuccess = checker.CheckSig(vchSig, vchPubKey, scriptCode, sigversion);
-                    //}
-
-
-                    if (!fSuccess && (flags & SCRIPT_VERIFY_NULLFAIL) && vchSig.size())
-                        return false;
-
                     popstack(stack);
                     popstack(stack);
+                    bool fSuccess = true;
                     stack.push_back(fSuccess ? vchTrue : vchFalse);
                     if (opcode == OP_CHECKSIGVERIFY)
                     {
@@ -1010,18 +781,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         valtype& vchSig    = stacktop(-isig);
                         valtype& vchPubKey = stacktop(-ikey);
 
-                        // Note how this makes the exact order of pubkey/signature evaluation
-                        // distinguishable by CHECKMULTISIG NOT if the STRICTENC flag is set.
-                        // See the script_(in)valid tests for details.
-                        if (!CheckSignatureEncoding(vchSig, flags) || !CheckPubKeyEncoding(vchPubKey, flags, sigversion)) {
-                            // serror is set
-                            return false;
-                        }
-
                         // Check signature
                         bool fOk = true;
-                        //bool fOk = checker.CheckSig(vchSig, vchPubKey, scriptCode, sigversion);
-
                         if (fOk) {
                             isig++;
                             nSigsCount--;
@@ -1071,7 +832,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 break;
 
                 // contract
-                /*
                 case OP_CHECKCONTRACT:
                 {
                     // (contractaddress -- bool)
@@ -1113,17 +873,11 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                     CKeyID keyID;
                     contractAddress.GetKeyID(keyID);
-                    if (checker.IsRealNameContract())
-                    {
-                        if (!checker.CheckContractRealNameKeyId(keyID, isCheckBlock ? g_blockCheckTime : time(NULL)))
-                            return false;
-                    }
 
                     popstack(stack);
                     stack.push_back(valtype(keyID.begin(), keyID.end()));
                 }
                 break;
-                */
 
                 default:
                     return false;
@@ -1516,6 +1270,191 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     }
 
     return ss.GetHash();
+}
+
+uint256 GetContractHash(UniValue contractCall)
+{
+    CHashWriter ss(SER_GETHASH, 0);
+    int version = contractCall["version"].get_int();
+    ss << version;
+
+    const UniValue& contract = find_value(contractCall, "contract");
+
+    if (!contract.isNull()) {
+        std::vector<std::string> veckeys = contract.getKeys();
+        std::sort(veckeys.begin(), veckeys.begin() + veckeys.size());
+
+        for (const std::string& key_: veckeys) {
+            const UniValue& obj = find_value(contract, key_);
+            ss << obj.getValStr();
+        }
+    }
+
+    const UniValue& request = find_value(contractCall, "request");
+    std::vector<std::string> veckeys = request.getKeys();
+    std::sort(veckeys.begin(), veckeys.begin() + veckeys.size());
+
+    for (const std::string& key_: veckeys) {
+        const UniValue& obj = find_value(request, key_);
+        ss << obj.getValStr();
+    }
+
+    return ss.GetHash();
+}
+
+bool TransactionSignatureChecker::CheckContract(const std::vector<unsigned char>& vchContractHash, std::vector<unsigned char>& vchContractAddress) const
+{
+    // std::cout << "TransactionSignatureChecker::CheckContract in "<< std::endl;
+    vchContractAddress.clear();
+    if (vchContractHash.size() != 32) {
+        std::cout << "CheckContract vchContractHash.size() error: " << vchContractHash.size() << std::endl;
+        return false;
+    }
+    if (txTo->GetSubType() != BUSINESSTYPE_CONTRACTRESULT) {
+        //return false;
+        UniValue attach(UniValue::VOBJ);
+        CAttachInfo mainattach;
+        if (mainattach.read(txTo->strAttach) && !mainattach.isNull())
+        {
+            attach = mainattach.getTypeObj(CAttachInfo::ATTACH_CONTRACT);
+        }
+        else
+        {
+            return false;
+        }
+        const UniValue& addrs = find_value(attach, "contractaddr");
+        if (addrs.isNull())
+            return false;
+        std::string key;
+
+        if (this->nInType == EnumTx::TX_TOKEN)
+        {
+            key = std::to_string(nIn);
+        }
+        else if (this->nInType == EnumTx::TX_GAS)
+        {
+            key = std::string("token") + std::to_string(nIn);
+        }
+        else
+        {
+            return false;
+        }
+
+        const UniValue& addr = find_value(addrs, key);
+        if (addr.isNull())
+            return false;
+        CContractAddress contractAddress;
+        contractAddress.SetString(addr.get_str());
+        if (!contractAddress.IsValid())
+            return false;
+
+        vchContractAddress = contractAddress.GetData();
+        return true;
+    }
+
+    try
+	{
+        UniValue attach(UniValue::VOBJ);
+        CAttachInfo mainattach;
+        if (mainattach.read(txTo->strAttach) && !mainattach.isNull())
+        {
+            attach = mainattach.getTypeObj(CAttachInfo::ATTACH_CONTRACT);
+        }
+        else
+        {
+            if (!attach.read(txTo->strAttach)) {
+                std::cout << "CheckContract Invalid data object "<< std::endl;
+                throw std::runtime_error("Invalid data object");
+            }
+            if (attach.exists("version")) {
+                int version = attach["version"].get_int();
+                if ( version == 2) {
+                    attach = attach["list"][0];
+                }
+            }
+        }
+
+        const UniValue& call = find_value(attach, "call");
+        const UniValue& contract = find_value(call, "contract");
+        const UniValue& request = find_value(call, "request");
+
+        //------------------------------------------------------
+        // check contract hash
+        uint256 hash256 = GetContractHash(call);
+        // std::cout << "couttest CheckContract hash256: " << HexStr(hash256.begin(), hash256.end()).c_str() << std::endl;
+        if (memcmp(hash256.begin(), &vchContractHash[0], 32) != 0) {
+            std::cout << "CheckContract contract hash mismatching"<< std::endl;
+            return false;
+        }
+
+        CContractAddress contractAddress;
+        //------------------------------------------------------
+        // check contract content
+        if (!contract.isNull()) 
+        {
+            int nContractType = find_value(contract, "contractType").get_int();
+            std::string strPubKey = find_value(contract, "pubKey").get_str();
+            std::string strCode = find_value(contract, "code").get_str();
+            std::vector<unsigned char> vecCode = VM::DecodeContractCode(strCode);
+            std::string strSourceType = find_value(contract, "sourceType").get_str();
+            std::string strAddrSign = find_value(contract, "addressSign").get_str();
+
+            // make contract address
+            bool fRealName = false;
+            CKeyID realKeyId;
+            realKeyId.SetHex(strPubKey);
+            if (IsValidAddress(realKeyId))
+                fRealName = true;
+            CKeyID keyID;
+            if (fRealName)
+                keyID = realKeyId;
+            else
+            {
+                CPubKey pubKey = CPubKey(ParseHex(strPubKey));
+                keyID = pubKey.GetID();
+            }
+            CContractCodeID contractID = CContractCodeID(Hash160(vecCode.begin(), vecCode.end()));
+
+            std::vector<unsigned char> vchVersion = { (unsigned char) nContractType };
+            contractAddress = CContractAddress(vchVersion, keyID, contractID);
+            if (!contractAddress.IsValid()) {
+                std::cout << "CheckContract invalid contractAddress"<< std::endl;
+                return false;
+            }
+
+            vchContractAddress = contractAddress.GetData();
+        }
+        else
+        {
+            CContractAddress contractAddress(request["contractAddress"].get_str());
+            if (!contractAddress.IsValid()) {
+                std::cout << "CheckContract invalid contractAddress"<< std::endl;
+                return false;
+            }
+            vchContractAddress = contractAddress.GetData();
+        }
+
+        // check request params
+        // ...
+        std::string strFeeBackAddr = find_value(request, "feeBackAddr").get_str();
+    }
+    catch (const UniValue& error)
+    {
+        std::cout << "CheckContract UniValue::execption: " << error.write() << std::endl;
+        return false;
+    }
+    catch (const std::exception ex) {
+        std::cout << "CheckContract std::execption: " << ex.what() << std::endl;
+        return false;
+    }
+    catch (...) {
+        std::cout << "CheckContract ..." << std::endl;
+        return false;
+    }
+
+    // std::cout << "TransactionSignatureChecker::CheckContract end "<< std::endl;
+
+    return true;
 }
 
 size_t static WitnessSigOps(int witversion, const std::vector<unsigned char>& witprogram, const CScriptWitness& witness, int flags)

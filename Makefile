@@ -41,8 +41,10 @@ INCLUDES = $(LOCAL_INCLUDE) \
            $(UNIVALIE_INCLUDE)
 OBJS = main.o \
        amount.o \
+       attachinfo.o \
        arith_uint256.o \
        base58.o \
+       ca.o \
        chainparams.o \
        core_write.o \
        hash.o \
@@ -73,9 +75,13 @@ main.o : main.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 amount.o : amount.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+attachinfo.o : attachinfo.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 arith_uint256.o : arith_uint256.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 base58.o : base58.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+ca.o : ca.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 chainparams.o : chainparams.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)

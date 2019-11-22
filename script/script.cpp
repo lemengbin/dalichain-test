@@ -1,4 +1,10 @@
+// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2009-2016 The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "script.h"
+
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "base58.h"
@@ -273,7 +279,6 @@ bool CScript::IsWitnessProgram(int& version, std::vector<unsigned char>& program
     return false;
 }
 
-/*
 bool CScript::IsContractOutput() const
 {
     // contract CScripts:
@@ -327,15 +332,15 @@ bool CScript::IsPayToRealNamePubkeyHash() const
 {
     size_type nSize = this->size();
     return (nSize == 22 &&
-            (*this)[21] == OP_CHECKREALNAMESIG);
+           (*this)[21] == OP_CHECKREALNAMESIG);
 }
 
 bool CScript::IsRealNameAppendHash() const
 {
     size_type nSize = this->size();
     return (nSize == 24 &&
-            (*this)[21] == OP_CHECKREALNAMESIG &&
-            IsTokenCreateOrAppendOut());
+           (*this)[21] == OP_CHECKREALNAMESIG &&
+           IsTokenCreateOrAppendOut());
 }
 
 bool CScript::IsRealNameContract() const
@@ -366,7 +371,6 @@ std::string CScript::GetContractAddress() const
 
     return strAddr;
 }
-*/
 
 bool CScript::IsPushOnly(const_iterator pc) const
 {
@@ -401,4 +405,3 @@ std::string CScriptWitness::ToString() const
     }
     return ret + ")";
 }
-

@@ -226,7 +226,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         }
     } else {
         //check if it is real name append
-        /*
         if (scriptPubKey.IsRealNameAppendHash())
         {
             typeRet = TX_REALNAME;
@@ -234,7 +233,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             vSolutionsRet.push_back(pubkeyHashBytes);
             return true;
         }
-        */
         // Scan templates
         const CScript& script1 = scriptPubKey;
         BOOST_FOREACH(const PAIRTYPE(txnouttype, CScript)& tplate, mTemplatesAppend)
@@ -317,7 +315,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     }
 
     // contract script
-    /*
     if (scriptPubKey.IsContractAddress())
     {
         typeRet = TX_CONTRACT_ADDRESS;
@@ -346,7 +343,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         vSolutionsRet.push_back(pubkeyHashBytes);
         return true;
     }
-    */
 
     vSolutionsRet.clear();
     typeRet = TX_NONSTANDARD;
