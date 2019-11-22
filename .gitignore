@@ -1,0 +1,4 @@
+*.o
+test
+.gitignore
+.*.swap
