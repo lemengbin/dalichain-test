@@ -2,6 +2,9 @@ srcdir=.
 
 LOCAL_INCLUDE = -I$(srcdir)
 
+CA_OBJ = ca/ca.o \
+         ca/camempool.o
+
 COMPRESS_INCLUDE = -I$(srcdir)/compress/include
 COMPRESS_OBJ = compress/CompressAlgorithmBase.o \
                compress/LZ4Compress.o \
@@ -17,6 +20,11 @@ CRYPTO_OBJ = crypto/aes.o \
              crypto/sha1.o \
              crypto/sha256.o \
              crypto/sha512.o
+
+IPFS_INCLUDE = -I$(srcdir)/ipfsapi/include
+IPFS_OBJ = ipfsapi/src/client.o \
+           ipfsapi/src/http/transport-curl.o \
+           ipfsapi/src/ipfsapi.o
 
 SCRIPT_OBJ = script/standard.o \
              script/sign.o \
@@ -37,6 +45,7 @@ UNIVALUE_OBJ = univalue/lib/univalue.o \
 INCLUDES = $(LOCAL_INCLUDE) \
            $(COMPRESS_INCLUDE) \
            $(CONFIG_INCLUDE) \
+           $(IPFS_INCLUDE) \
            $(SECP256K1_INCLUDE) \
            $(UNIVALIE_INCLUDE)
 OBJS = main.o \
@@ -44,9 +53,9 @@ OBJS = main.o \
        attachinfo.o \
        arith_uint256.o \
        base58.o \
-       ca.o \
        chainparams.o \
        core_write.o \
+       GlobalProfile.o \
        hash.o \
        key.o \
        keystore.o \
@@ -57,16 +66,19 @@ OBJS = main.o \
        sync.o \
        transaction.o \
        uint256.o \
+       util.o \
        utilstrencodings.o \
+       $(CA_OBJ) \
        $(COMPRESS_OBJ) \
        $(CRYPTO_OBJ) \
+       $(IPFS_OBJ) \
        $(SCRIPT_OBJ) \
        $(SUPPORT_OBJ) \
        $(UNIVALUE_OBJ)
 
 CXX = g++
 CXXFLAGS = -g -DHAVE_CONFIG_H -std=c++11
-LIBS = $(SECP256K1_LIB) -lboost_thread -lboost_system -llz4 -lsnappy -lz -lcrypto -lssl -pthread
+LIBS = $(SECP256K1_LIB) -lboost_thread -lboost_system -lboost_filesystem -llz4 -lsnappy -lz -lcrypto -lssl -pthread -lcurl
 
 test: $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LIBS) $(INCLUDES)
@@ -81,11 +93,11 @@ arith_uint256.o : arith_uint256.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 base58.o : base58.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-ca.o : ca.cpp
-	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 chainparams.o : chainparams.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 core_write.o : core_write.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+GlobalProfile.o : GlobalProfile.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 hash.o : hash.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
@@ -105,9 +117,17 @@ sync.o : sync.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 transaction.o : transaction.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+#tx_params.o : tx_params.cpp
+#	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 uint256.o : uint256.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+util.o : util.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 utilstrencodings.o : utilstrencodings.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+ca/ca.o : ca/ca.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+ca/camempool.o : ca/camempool.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 compress/CompressAlgorithmBase.o : compress/CompressAlgorithmBase.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
@@ -130,6 +150,12 @@ crypto/sha1.o : crypto/sha1.cpp
 crypto/sha256.o : crypto/sha256.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 crypto/sha512.o : crypto/sha512.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+ipfsapi/src/client.o : ipfsapi/src/client.cc
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+ipfsapi/src/http/transport-curl.o : ipfsapi/src/http/transport-curl.cc
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+ipfsapi/src/ipfsapi.o : ipfsapi/src/ipfsapi.cc
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 script/standard.o : script/standard.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)

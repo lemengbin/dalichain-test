@@ -6,7 +6,7 @@
 
 #include "amount.h"
 #include "hash.h"
-#include "common.h"
+#include "util.h"
 #include "uint256.h"
 #include "serialize.h"
 #include "script/script.h"

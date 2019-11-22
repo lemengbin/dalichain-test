@@ -2,6 +2,7 @@
 #define BITCOIN_CHAINPARAMS_H
 
 #include <vector>
+#include "protocol.h"
 
 class CChainParams
 {
@@ -25,8 +26,10 @@ public:
 
         MAX_BASE58_TYPES
     };
+
 protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
+    CMessageHeader::MessageStartChars pchMessageStart;
 
 public:
     CChainParams()
@@ -48,9 +51,15 @@ public:
         base58Prefixes[REALNAME_SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,94);
         base58Prefixes[REALNAME_WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,95);
         base58Prefixes[REALNAME_WNA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,96);
+
+        pchMessageStart[0] = 0xf9;
+        pchMessageStart[1] = 0xbe;
+        pchMessageStart[2] = 0xb4;
+        pchMessageStart[3] = 0xd9;
     }
 
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
+    const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
 };
 
 const CChainParams &Params();

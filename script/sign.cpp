@@ -14,7 +14,8 @@
 #include <boost/foreach.hpp>
 #include "base58.h"
 #include "utilstrencodings.h"
-#include "ca.h"
+#include "ca/ca.h"
+#include "ca/camempool.h"
 
 using namespace std;
 
@@ -27,7 +28,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
     if (scriptCode.IsPayToRealNamePubkeyHash() || scriptCode.IsRealNameAppendHash() || scriptCode.IsRealNameContract())
     {
         uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion, checker.GetInType());
-        printf("create signature hash: %s\n", sighash.ToString().c_str());
+        LogPrintf("create signature hash: %s\n", sighash.ToString().c_str());
         if (scriptCode.IsContractOutput())
         {
             std::string addr = scriptCode.GetContractAddress();
@@ -43,7 +44,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
         stCertFile certFile = GetLocalCaManager()->GetCa(address);
         if (certFile.Empty())
         {
-            printf("can not find private key for realname utxo: %s\n", txTo->vin[nIn].prevout.hash.ToString().c_str());
+            LogPrintf("can not find private key for realname utxo: %s\n", txTo->vin[nIn].prevout.hash.ToString().c_str());
             return false;
         }
         std::string tmpPwd;
@@ -55,7 +56,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
         CPrivateKey key(certFile.strKey.c_str(), tmpPwd.c_str(), FORMAT_PEM);
         if (!key.IsValid())
         {
-            printf("Real name certificate key %s invalid\n", certFile.strKey.c_str());
+            LogPrintf("Real name certificate key %s invalid\n", certFile.strKey.c_str());
             return false;
         }
         unsigned char CAsignafter[1024] = {0};
@@ -63,7 +64,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
         if (!CASign((char*)key.GetKeyContent().data(), key.GetKeyContent().size(), FORMAT_PEM, tmpPwd.empty() ? "" : tmpPwd.c_str(),
             sighash.begin(),  sighash.size(), CAsignafter, &signlen))
         {
-            printf("sign real name error\n");
+            LogPrintf("sign real name error\n");
             return false;
         }
         std::vector<unsigned char> vecSignAfter(CAsignafter, CAsignafter + signlen);
@@ -524,7 +525,7 @@ bool DummySignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const 
 {
     if (scriptCode.IsPayToRealNamePubkeyHash())
     {
-        printf("dummy real name sig\n");
+        LogPrintf("dummy real name sig\n");
         vchSig.assign(512, '\000');
         for (int i = 0; i < 6; i++)
         {

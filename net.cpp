@@ -3,7 +3,9 @@
 #include "hash.h"
 #include "version.h"
 #include "random.h"
+#include "util.h"
 #include "netmessagemaker.h"
+#include "chainparams.h"
 
 #include <iostream>
 #include <list>
@@ -19,11 +21,6 @@
 using namespace std;
 
 static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 42 * 1000 * 1000;
-static CMessageHeader::MessageStartChars pchMessageStart = {0xf9, 0xbe, 0xb4, 0xd9};
-//pchMessageStart[0] = 0xf9;
-//pchMessageStart[1] = 0xbe;
-//pchMessageStart[2] = 0xb4;
-//pchMessageStart[3] = 0xd9;
 
 bool CloseSocket(int& hSocket)
 {
@@ -72,22 +69,22 @@ void PushMessage(int& hSocket, CSerializedNetMsg&& msg)
 {
     size_t nMessageSize = msg.data.size();
     size_t nTotalSize = nMessageSize + CMessageHeader::HEADER_SIZE;
-    //cout << "sending " << msg.command << " (" << nMessageSize << " bytes)" << endl;
+    //LogPrintf("sending %s (%d bytes)“， msg.command, nMessageSize);
 
     vector<unsigned char> serializedHeader;
     serializedHeader.reserve(CMessageHeader::HEADER_SIZE);
 
     uint256 hash = Hash(msg.data.data(), msg.data.data() + nMessageSize);
-    CMessageHeader hdr(pchMessageStart, msg.command.c_str(), nMessageSize);
+    CMessageHeader hdr(Params().MessageStart(), msg.command.c_str(), nMessageSize);
     memcpy(hdr.pchChecksum, hash.begin(), CMessageHeader::CHECKSUM_SIZE);
 
     CVectorWriter{SER_NETWORK, INIT_PROTO_VERSION, serializedHeader, 0, hdr};
     send(hSocket, reinterpret_cast<const char*>(serializedHeader.data()), serializedHeader.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
-    //printf("command: %s, header size: %d\n", msg.command.data(), serializedHeader.size());
+    //LogPrintf("command: %s, header size: %d\n", msg.command.data(), serializedHeader.size());
     if(nMessageSize)
     {
         send(hSocket, reinterpret_cast<const char*>(msg.data.data()), nMessageSize, MSG_NOSIGNAL | MSG_DONTWAIT);
-        //printf("data: %x, data size: %d\n", msg.data.data(), nMessageSize);
+        //LogPrintf("data: %x, data size: %d\n", msg.data.data(), nMessageSize);
     }
 }
 
@@ -139,7 +136,7 @@ bool ParseRecvedMessage(const char* pchBuf, unsigned int nBytes)
     while(nBytes > 0)
     {
         if(vRecvMsg.empty() || vRecvMsg.back().complete())
-            vRecvMsg.push_back(CNetMessage(pchMessageStart, SER_NETWORK, INIT_PROTO_VERSION));
+            vRecvMsg.push_back(CNetMessage(Params().MessageStart(), SER_NETWORK, INIT_PROTO_VERSION));
 
         CNetMessage& msg = vRecvMsg.back();
 
@@ -176,13 +173,13 @@ bool RecvMessage(int& hSocket)
                 break;
 
             string strCommand = it->hdr.GetCommand();
-            //cout << "recv command: " << strCommand << ", data size: " << it->hdr.nMessageSize << ", " << it->vRecv.size() << endl;
+            //LogPrintf("recv command: %s, data size: %d", strCommand, it->hdr.nMessageSize);
 
             if(strCommand == "ping")
             {
                 uint64_t nonce = 0;
                 it->vRecv >> nonce;
-                //cout << "recv ping data: " << nonce << endl;
+                //LogPrintf("recv ping data: %llu", nonce);
                 PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make("pong", nonce));
             }
             it = vRecvMsg.erase(it);
@@ -248,14 +245,14 @@ bool CNet::Start()
     if(!Connect())
         return false;
 
-    //cout << "Start thread: SendMessage RecvThread" << endl;
+    //LogPrintf("Start thread: SendMessage RecvTread");
     static thread sendThread(&SendMessage, ref(hSocket));
     static thread recvThread(&RecvMessage, ref(hSocket));
 
     /*
     sendThread.join();
     recvThread.join();
-    cout << "thread finish" << endl;
+    LogPrintf("End thread");
     */
 
     return true;
@@ -280,8 +277,7 @@ bool CNet::Connect()
     if (!SetSocketNonBlocking(hSocket, true))
     {
         CloseSocket(hSocket);
-        cout << "ConnectSocketDirectly: Setting socket to non-blocking failed, error " << errno << endl;
-        return false;
+        return error("ConnectSocketDirectly: Setting socket to non-blocking failed, error %d", errno);
     }
     */
 
@@ -291,11 +287,7 @@ bool CNet::Connect()
     srvAddr.sin_addr.s_addr = inet_addr(strIP.c_str());
 
     if(connect(hSocket, (struct sockaddr*)&srvAddr, sizeof(srvAddr)) == -1)
-    {
-        cout << "Connect to node failed " << errno << endl;
-        return false;
-    }
-    cout << "Connect to node successfully" << endl;
+        return error("Connect to node failed %d", errno);
 
     return true;
 }

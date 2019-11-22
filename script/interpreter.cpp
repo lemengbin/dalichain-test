@@ -21,8 +21,8 @@
 // #include <boost/foreach.hpp>
 // #include <boost/assign/list_of.hpp>
 #include "utilstrencodings.h"
-#include "ca.h"
-//#include "ca/camempool.h"
+#include "ca/ca.h"
+#include "ca/camempool.h"
 
 #include "contract/contractcode.h"
 #include "attachinfo.h"
@@ -1403,7 +1403,7 @@ bool TransactionSignatureChecker::CheckContract(const std::vector<unsigned char>
             bool fRealName = false;
             CKeyID realKeyId;
             realKeyId.SetHex(strPubKey);
-            if (IsValidAddress(realKeyId))
+            if (GetCaMempool()->IsValidAddress(realKeyId))
                 fRealName = true;
             CKeyID keyID;
             if (fRealName)

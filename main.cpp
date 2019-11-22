@@ -17,6 +17,7 @@
 #include "script/interpreter.h"
 #include "utilstrencodings.h"
 #include "netmessagemaker.h"
+//#include "tx_params.h"
 
 using namespace std;
 
@@ -99,6 +100,27 @@ string CreateContractTx(const UniValue& params)
     string strCurrencySymbol = params["currency_symbol"].get_str();
     UniValue inputs = params["vin"].get_array();
     UniValue sendTo = params["vout"].get_obj();
+
+    std::shared_ptr<TransactionBuilderContract> builder = std::make_shared<TransactionBuilderContract>(TransactionBuilderContract());
+    Univalue contract = params["contract_params"].get_array();
+    ContractCallInfo callInfo;
+    if(!callInfo.Parse(contract))
+        throw std::ios_base::failure("Parse contract params failed");
+    ContractRequest& callReq = callInfo.request;
+    if (callInfo.IsCreate()) {
+        ContractInfo& info = callInfo.info;
+        builder->setPubKey(info.strPubKey);
+        builder->setCode(info.strCode, info.strSourceType);
+        builder->setContractType(Params().Base58Prefix((CChainParams::Base58Type)info.base58Type)[0]);
+        builder->setAddressSign(HexStr(info.vchSig));
+    }
+
+    CContractAddress contractAddr = callInfo.getContractAddress();
+    builder->setContractAddr(contractAddr.ToString());
+    builder->setFunc(callReq.func);
+    builder->setParams(callReq.params.write());
+    builder->setFeeback(callReq.strFeeBackAddr);
+    builder->setAttach();
 
     CMutableTransaction rawTx;
     rawTx.strPayCurrencySymbol = strCurrencySymbol;
@@ -201,7 +223,6 @@ string SendRawTransaction(const string& strRawTx, int& hSocket)
 
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
     const uint256& hashTx = tx->GetHash();
-    //cout << "hash: " << hashTx.GetHex() << endl;
 
     PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make(SERIALIZE_TRANSACTION_NO_WITNESS, "tx", *tx));
     return hashTx.GetHex();
@@ -211,7 +232,7 @@ int main(int argc, char** argv)
 {
     if(argc != 3)
     {
-        cout << "Program need type of tx and file" << endl;
+        LogPrintf("Program need type of tx and file");
         return -1;
     }
     int nType = atoi(argv[1]);
@@ -220,10 +241,10 @@ int main(int argc, char** argv)
     ECC_Start();
 
     string strRawTx = CreateRawTransaction(nType, strFile);
-    cout << "raw: " << strRawTx << endl;
+    LogPrintf("raw: %s", strRawTx);
 
     strRawTx = SignRawTransaction(strRawTx, strFile);
-    cout << "sign: " << strRawTx << endl;
+    LogPrintf("sign: %s", strRawTx);
 
     net.Start();
 

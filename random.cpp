@@ -11,6 +11,7 @@
 #include "compat.h" // for Windows API
 #include <wincrypt.h>
 #endif
+#include "util.h"             // for LogPrint()
 #include "utilstrencodings.h" // for GetTime()
 
 #include <stdlib.h>
@@ -29,7 +30,7 @@
 
 static void RandFailure()
 {
-    printf("Failed to read randomness, aborting\n");
+    LogPrintf("Failed to read randomness, aborting\n");
     abort();
 }
 
@@ -87,7 +88,7 @@ static void RandAddSeedPerfmon()
     } else {
         static bool warned = false; // Warn only once
         if (!warned) {
-            printf("%s: Warning: RegQueryValueExA(HKEY_PERFORMANCE_DATA) failed with code %i\n", __func__, ret);
+            LogPrintf("%s: Warning: RegQueryValueExA(HKEY_PERFORMANCE_DATA) failed with code %i\n", __func__, ret);
             warned = true;
         }
     }
