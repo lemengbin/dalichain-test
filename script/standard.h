@@ -27,6 +27,9 @@ enum txnouttype
 
 class CScript;
 class CKeyID;
+class CContractAddress;
+class CRealNameAddress;
+class CContractTXScript;
 class CScriptID : public uint160
 {
 public:
@@ -42,7 +45,7 @@ public:
     friend bool operator<(const CNoDestination &a, const CNoDestination &b) { return true; }
 };
 
-typedef boost::variant<CNoDestination, CKeyID, CScriptID/*, CContractAddress, CRealNameAddress, CContractTXScript*/> CTxDestination;
+typedef boost::variant<CNoDestination, CKeyID, CScriptID, CContractAddress, CRealNameAddress, CContractTXScript> CTxDestination;
 CScript GetScriptForDestination(const CTxDestination& dest);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);;
 

@@ -13,6 +13,7 @@
 #include "keystore.h"
 #include "script/script.h"
 #include "script/sign.h"
+#include "script/standard.h"
 #include "script/interpreter.h"
 #include "utilstrencodings.h"
 #include "netmessagemaker.h"

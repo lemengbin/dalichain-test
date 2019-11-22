@@ -3,6 +3,7 @@
 #include "hash.h"
 #include "pubkey.h"
 #include "utilstrencodings.h"
+#include "base58.h"
 #include <vector>
 #include <boost/foreach.hpp>
 
@@ -36,7 +37,6 @@ namespace
             return true;
         }
 
-        /*
         bool operator()(const CContractAddress &address) const {
             script->clear();
             *script << OP_DUP << OP_HASH160 << ToByteVector(address.GetData()) << OP_CONTRACTKEYID << OP_EQUALVERIFY << OP_CHECKSIG;
@@ -66,7 +66,6 @@ namespace
             }
             return true;
         }
-        */
     };
 }
 

@@ -17,6 +17,7 @@
 #include "chainparams.h"
 #include "key.h"
 #include "pubkey.h"
+#include "contract/contract.h"
 #include "script/script.h"
 #include "script/standard.h"
 #include "support/allocators/zeroafterfree.h"
@@ -116,7 +117,6 @@ public:
 /**
  * A base58-encoded smart contract addresses.
  */
-/*
 class CContractAddress : public CBase58Data
 {
 public:
@@ -152,12 +152,10 @@ public:
         READWRITE(this->vchData);
     }
 };
-*/
 
 /** base58-encoded real-name addresses.
  * The data vector contains RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
  */
-/*
 class CRealNameAddress : public CBase58Data {
 public:
     bool Set(const CKeyID &id);
@@ -171,7 +169,6 @@ public:
 
     bool GetKeyID(CKeyID &keyID) const;
 };
-*/
 
 
 /** base58-encoded Bitcoin addresses.
@@ -184,9 +181,9 @@ class CBitcoinAddress : public CBase58Data {
 public:
     bool Set(const CKeyID &id);
     bool Set(const CScriptID &id);
-//    bool Set(const CContractAddress &addr);
-//    bool Set(const CContractTXScript &script);
-//    bool Set(const CRealNameAddress &addr);
+    bool Set(const CContractAddress &addr);
+    bool Set(const CContractTXScript &script);
+    bool Set(const CRealNameAddress &addr);
     bool Set(const CTxDestination &dest);
     bool IsValid() const;
     bool IsValid(const CChainParams &params) const;
@@ -201,8 +198,8 @@ public:
     bool IsScript() const;
     bool IsBasicAddress() const;
     bool IsBitcoinAddress() const;
-//    bool IsContractAddress() const;
-//    bool IsRealNameAddress() const;
+    bool IsContractAddress() const;
+    bool IsRealNameAddress() const;
 
 };
 
@@ -259,11 +256,11 @@ namespace std
     template<> struct hash<CBase58Data>: CBase58Data::hash {};
     template<> struct hash<CBitcoinAddress>: CBase58Data::hash {};
     template<> struct hash<CBitcoinSecret>: CBase58Data::hash {};
-//    template<> struct hash<CContractAddress>: CBase58Data::hash {};
+    template<> struct hash<CContractAddress>: CBase58Data::hash {};
 }
 
 /// A set of contract addresses.
-//using ContractAddrSet = std::unordered_set<CContractAddress>;
+using ContractAddrSet = std::unordered_set<CContractAddress>;
 
 std::ostream& operator<<(std::ostream& _out, CBase58Data const& _b58);
 

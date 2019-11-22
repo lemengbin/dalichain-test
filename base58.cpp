@@ -229,15 +229,14 @@ public:
 
     bool operator()(const CKeyID& id) const { return addr->Set(id); }
     bool operator()(const CScriptID& id) const { return addr->Set(id); }
-//    bool operator()(const CContractAddress& address) const { return addr->Set(address); }
-//    bool operator()(const CContractTXScript& script) const { return addr->Set(script); }
-//    bool operator()(const CRealNameAddress& address) const { return addr->Set(address); }
+    bool operator()(const CContractAddress& address) const { return addr->Set(address); }
+    bool operator()(const CContractTXScript& script) const { return addr->Set(script); }
+    bool operator()(const CRealNameAddress& address) const { return addr->Set(address); }
     bool operator()(const CNoDestination& no) const { return false; }
 };
 
 } // anon namespace
 
-/*
 bool CRealNameAddress::Set(const CKeyID& id)
 {
     SetData(Params().Base58Prefix(CChainParams::REALNAME_ADDRESS), &id, 20);
@@ -273,7 +272,6 @@ bool CRealNameAddress::GetKeyID(CKeyID& keyID) const
 
     return true;
 }
-*/
 
 bool CBitcoinAddress::Set(const CKeyID& id)
 {
@@ -287,7 +285,6 @@ bool CBitcoinAddress::Set(const CScriptID& id)
     return true;
 }
 
-/*
 bool CBitcoinAddress::Set(const CContractAddress& addr)
 {
     if (!addr.IsValid())
@@ -317,7 +314,6 @@ bool CBitcoinAddress::Set(const CRealNameAddress& addr)
     vchData = addr.Data();
     return true;
 }
-*/
 
 bool CBitcoinAddress::Set(const CTxDestination& dest)
 {
@@ -361,13 +357,10 @@ CTxDestination CBitcoinAddress::Get() const
             return CKeyID(id);
         else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS))
             return CScriptID(id);
-        /*
         else if (vchVersion == Params().Base58Prefix(CChainParams::REALNAME_ADDRESS))
             return CRealNameAddress(id);
-            */
     }
     // contract address
-    /*
     else if (vchData.size() == 40) {
         if (vchVersion == Params().Base58Prefix(CChainParams::SPA_CONTRACT_ADDRESS) ||
             vchVersion == Params().Base58Prefix(CChainParams::WNS_CONTRACT_ADDRESS) ||
@@ -384,7 +377,6 @@ CTxDestination CBitcoinAddress::Get() const
             return CContractAddress(vchSetData);
         }
     }
-    */
 
     return CNoDestination();
 }
@@ -430,7 +422,6 @@ bool CBitcoinAddress::IsBitcoinAddress() const
                          vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS));
 }
 
-/*
 bool CBitcoinAddress::IsContractAddress() const
 {
     return IsValid() && (vchVersion == Params().Base58Prefix(CChainParams::SPA_CONTRACT_ADDRESS) ||
@@ -448,7 +439,6 @@ bool CBitcoinAddress::IsRealNameAddress() const
                          vchVersion == Params().Base58Prefix(CChainParams::REALNAME_WNS_CONTRACT_ADDRESS) ||
                          vchVersion == Params().Base58Prefix(CChainParams::REALNAME_WNA_CONTRACT_ADDRESS));
 }
-*/
 
 void CBitcoinSecret::SetKey(const CKey& vchSecret)
 {
@@ -483,7 +473,6 @@ bool CBitcoinSecret::SetString(const std::string& strSecret)
     return SetString(strSecret.c_str());
 }
 
-/*
 CContractAddress::CContractAddress(const std::vector<unsigned char> &data)
 {
     if (data.size() != 41)
@@ -647,7 +636,6 @@ std::vector<unsigned char> CContractAddress::GetData() const
     }
     return vchDataOut;
 }
-*/
 
 std::ostream& operator<<(std::ostream& _out, CBase58Data const& _b58)
 {
