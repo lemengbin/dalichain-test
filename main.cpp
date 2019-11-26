@@ -380,7 +380,7 @@ int main(int argc, char** argv)
     ECC_Stop();
 
     int i = 0;
-    while(i <= 5){
+    while(i++ < 5){
         sleep(1);
     }
 
