@@ -17,7 +17,8 @@
 #include "script/interpreter.h"
 #include "utilstrencodings.h"
 #include "netmessagemaker.h"
-//#include "tx_params.h"
+#include "ca/camempool.h"
+#include "attachinfo.h"
 
 using namespace std;
 
@@ -26,6 +27,7 @@ enum TX_TYPE{COMMON_TX = 1, EXCHANGE_TX, PUBLISH_TX, MULTISIG_TX, CONTRACT_TX};
 static CNet net;
 
 string CreateCommonTx(const UniValue& params);
+string CreateContractTx(const UniValue& params);
 
 UniValue ParseJsonFile(const string& strFile)
 {
@@ -56,7 +58,7 @@ string CreateRawTransaction(const int& nType, const string& strFile)
         case TX_TYPE::MULTISIG_TX:
             //return CreateMultiSigTx(strParams);
         case TX_TYPE::CONTRACT_TX:
-            //return CreateContractTx(strParams);
+            return CreateContractTx(params);
             break;
     }
     return "";
@@ -94,36 +96,103 @@ string CreateCommonTx(const UniValue& params)
     return EncodeHexTx(rawTx);
 }
 
-/*
+extern uint256 GetContractHash(UniValue contractCall);
+uint256 GetContractHash(const std::string& contractCall)
+{
+    UniValue attach(UniValue::VOBJ);
+    CAttachInfo mainattach;
+    std::cout << "contractCall: " << contractCall << std::endl;
+    if(mainattach.read(contractCall) && !mainattach.isNull()) {
+        attach = mainattach.getTypeObj(CAttachInfo::ATTACH_CONTRACT);
+        std::cout << "!!! " << attach.write() << std::endl;
+        return GetContractHash(attach);
+    } else {
+        if (attach.read(contractCall)) {
+            if (attach.exists("version")) {
+                int attachVersion = find_value(attach, "version").get_int();
+                if (attachVersion == 2 && attach["list"].size() == 1) {
+                    attach = attach["list"][0];
+                }
+            }
+
+            std::cout << "@@@ " << attach.write() << std::endl;
+            return GetContractHash(attach);
+        }
+    }
+
+    return uint256();
+}
+
+#define CONTRACT_VERSION    1
 string CreateContractTx(const UniValue& params)
 {
     string strCurrencySymbol = params["currency_symbol"].get_str();
+    UniValue contract_params = params["contract_params"].get_array();
     UniValue inputs = params["vin"].get_array();
     UniValue sendTo = params["vout"].get_obj();
 
-    std::shared_ptr<TransactionBuilderContract> builder = std::make_shared<TransactionBuilderContract>(TransactionBuilderContract());
-    Univalue contract = params["contract_params"].get_array();
-    ContractCallInfo callInfo;
-    if(!callInfo.Parse(contract))
-        throw std::ios_base::failure("Parse contract params failed");
-    ContractRequest& callReq = callInfo.request;
-    if (callInfo.IsCreate()) {
-        ContractInfo& info = callInfo.info;
-        builder->setPubKey(info.strPubKey);
-        builder->setCode(info.strCode, info.strSourceType);
-        builder->setContractType(Params().Base58Prefix((CChainParams::Base58Type)info.base58Type)[0]);
-        builder->setAddressSign(HexStr(info.vchSig));
-    }
+    // 1. parse contract params
+    UniValue contract_request = contract_params[0].get_obj();
 
-    CContractAddress contractAddr = callInfo.getContractAddress();
-    builder->setContractAddr(contractAddr.ToString());
-    builder->setFunc(callReq.func);
-    builder->setParams(callReq.params.write());
-    builder->setFeeback(callReq.strFeeBackAddr);
-    builder->setAttach();
+    string strContractAddr = contract_request["address"].get_str();
+    string strFeeBackAddr = contract_request["feeBackAddr"].get_str();
+    UniValue callParams = contract_request["params"].get_obj();
+
+    bool isCreate = false;
+    if (contract_request["address"].empty() && contract_params.size() == 2)
+        isCreate = true;
+
+    CChainParams::Base58Type base58Type;
+    string strPrivKey = "";
+    string strPubKey = "";
+    string strSourceType = "";
+    string strCode = "";
+    string strSig = "";
+
+    CContractAddress contractAddr;
+    string strFunc = "";
+
+    if(isCreate)
+    {
+        // create contract
+        UniValue contract_info = contract_params[1].get_obj();
+        base58Type = (CChainParams::Base58Type)contract_info["base58Type"].get_int();
+
+        strPrivKey = contract_info["owner_privkey"].get_str();
+        CBitcoinSecret vchSecret;
+        vchSecret.SetString(strPrivKey);
+
+        CKey key = vchSecret.GetKey();
+
+        CPubKey pubkey = key.GetPubKey();
+        strPubKey = HexStr(pubkey.begin(), pubkey.end());
+
+        CKeyID owner_keyid = pubkey.GetID();
+
+        strSourceType = contract_info["sourceType"].get_str();
+
+        strCode = contract_info["code"].get_str();
+        std::vector<unsigned char> vecCode = ParseHex(strCode);
+        CContractCodeID contractID(Hash160(vecCode.begin(), vecCode.end()));
+
+        contractAddr.Set(base58Type, owner_keyid, contractID);
+        std::vector<unsigned char> vchContractAddress = contractAddr.GetData();
+        uint256 hash = Hash(vchContractAddress.begin(), vchContractAddress.end());
+
+        vector<unsigned char> vchSig;
+        key.Sign(hash, vchSig);
+        strSig = HexStr(vchSig);
+    }
+    else
+    {
+        // call contract abi
+        contractAddr = CContractAddress(contract_request["address"].get_str());
+        strFunc = contract_request["function"].get_str();
+    }
 
     CMutableTransaction rawTx;
     rawTx.strPayCurrencySymbol = strCurrencySymbol;
+    rawTx.nBusinessType = BUSINESSTYPE_SUB_CONTRACT::BUSINESSTYPE_CONTRACTCALL | BUSINESSTYPE::BUSINESSTYPE_TRANSACTION;
 
     for(unsigned int i = 0; i < inputs.size(); i++)
     {
@@ -136,18 +205,73 @@ string CreateContractTx(const UniValue& params)
         rawTx.vin.push_back(CTxIn(COutPoint(txid, (EnumTx)nOuttype, n), CScript(), nSequence));
     }
 
+    string strAttach = "";
+    {
+        UniValue contract(UniValue::VOBJ);
+        if(isCreate)
+        {
+            strFunc = "init";
+            contract.push_back(Pair("contractType", Params().Base58Prefix(base58Type)[0]));
+            contract.push_back(Pair("pubKey", strPubKey));
+            contract.push_back(Pair("sourceType", strSourceType));
+            contract.push_back(Pair("code", strCode));
+            contract.push_back(Pair("addressSign", strSig));
+        }
+
+        UniValue request(UniValue::VOBJ);
+        if(!isCreate)
+            request.push_back(Pair("contractAddress", strContractAddr));
+
+        request.push_back(Pair("function", strFunc));
+        request.push_back(Pair("params", callParams));
+        request.push_back(Pair("feeBackAddr", strFeeBackAddr));
+
+        UniValue attach(UniValue::VOBJ);
+        if(!contract.empty())
+            attach.push_back(Pair("contract", contract));
+        attach.push_back(Pair("request", request));
+        attach.push_back(Pair("version", CONTRACT_VERSION));
+
+        CAttachInfo attachInfo;
+        attachInfo.addAttach(CAttachInfo::ATTACH_CONTRACT, attach);
+
+        strAttach = attachInfo.write();
+    }
+
     vector<string> vAddress = sendTo.getKeys();
     for(const string& strKey : vAddress)
     {
-        CBitcoinAddress address(strKey);
-        CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(sendTo[strKey], strCurrencySymbol);
-        rawTx.vout.push_back(CTxOut(nAmount, scriptPubKey));
+        CScript scriptPubKey;
+        if(strKey == "contract")
+        {
+            CKeyID keyID;
+            contractAddr.GetKeyID(keyID);
+
+            CContractCodeID contractID;
+            contractAddr.GetContractID(contractID);
+
+            cout << "attach: " << strAttach << endl;
+            cout << "000: " << GetContractHash(strAttach).GetHex() << endl;
+            cout << "111: " << (CChainParams::Base58Type)contractAddr.GetBase58prefix() << endl;
+            cout << "222: " << HexStr(keyID) << endl;
+            cout << "333: " << HexStr(contractID) << endl;
+
+            CContractTXScript contractTxScript(GetContractHash(strAttach), (CChainParams::Base58Type)contractAddr.GetBase58prefix(), keyID, contractID);
+            scriptPubKey = GetScriptForDestination(contractTxScript);
+            cout << "scriptPubKey: " << HexStr(scriptPubKey) << endl;
+            rawTx.vout.insert(rawTx.vout.begin(), CTxOut(nAmount, scriptPubKey));
+        }
+        else
+        {
+            scriptPubKey = GetScriptForDestination(CBitcoinAddress(strKey).Get());
+            rawTx.vout.push_back(CTxOut(nAmount, scriptPubKey));
+        }
     }
+    rawTx.strAttach = strAttach;
 
     return EncodeHexTx(rawTx);
 }
-*/
 
 string SignRawTransaction(const string& strRawTx, const string& strFile)
 {
@@ -241,20 +365,23 @@ int main(int argc, char** argv)
     ECC_Start();
 
     string strRawTx = CreateRawTransaction(nType, strFile);
-    LogPrintf("raw: %s", strRawTx);
+    LogPrintf("raw: %s\n", strRawTx);
 
+    /*
     strRawTx = SignRawTransaction(strRawTx, strFile);
-    LogPrintf("sign: %s", strRawTx);
+    LogPrintf("sign: %s\n", strRawTx);
 
     net.Start();
 
     sleep(2);
-    //SendRawTransaction(strRawTx, net.hSocket);
+    SendRawTransaction(strRawTx, net.hSocket);
+    */
 
     ECC_Stop();
 
-    while(true){
-        sleep(10);
+    int i = 0;
+    while(i <= 5){
+        sleep(1);
     }
 
     return 0;

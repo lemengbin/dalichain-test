@@ -1,6 +1,10 @@
 #ifndef CONTRACT_H
 #define CONTRACT_H
 
+#include "uint256.h"
+#include "pubkey.h"
+#include "chainparams.h"
+
 class CContractCodeID : public uint160
 {
 public:

@@ -50,8 +50,8 @@ INCLUDES = $(LOCAL_INCLUDE) \
            $(UNIVALIE_INCLUDE)
 OBJS = main.o \
        amount.o \
-       attachinfo.o \
        arith_uint256.o \
+       attachinfo.o \
        base58.o \
        chainparams.o \
        core_write.o \
@@ -87,9 +87,9 @@ main.o : main.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 amount.o : amount.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-attachinfo.o : attachinfo.cpp
-	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 arith_uint256.o : arith_uint256.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+attachinfo.o : attachinfo.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 base58.o : base58.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
@@ -117,8 +117,6 @@ sync.o : sync.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 transaction.o : transaction.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-#tx_params.o : tx_params.cpp
-#	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 uint256.o : uint256.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 util.o : util.cpp
@@ -178,8 +176,11 @@ univalue/lib/univalue_write.o : univalue/lib/univalue_write.cpp
 
 clean:
 	rm *.o -rf
+	rm ca/*.o -rf
 	rm compress/*.o -rf
 	rm crypto/*.o -rf
+	rm ipfsapi/src/*.o -rf
+	rm ipfsapi/src/http/*.o -rf
 	rm script/*.o -rf
 	rm support/*.o -rf
 	rm univalue/lib/*.o -rf
