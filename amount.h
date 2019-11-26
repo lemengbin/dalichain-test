@@ -16,40 +16,36 @@ typedef int64_t CAmount;
 
 static const CAmount COIN = 100000000;
 static const CAmount CENT = 1000000;
-
-extern const std::string CURRENCY_UNIT;
-extern const std::string GAS_CURRENCY_UNIT;
+static const CAmount GAS_COIN = 1;
 
 /** No amount larger than this (in satoshi) is valid.
  *
  * Note that this constant is *not* the total money supply, which in Bitcoin
- * currently happens to be less than 210,000,000 DALI for various reasons, but
+ * currently happens to be less than 2 100,000,000 DALI for various reasons, but
  * rather a sanity check. As this sanity check is used by consensus-critical
  * validation code, the exact value of the MAX_MONEY constant is consensus
  * critical; in unusual circumstances like a(nother) overflow bug that allowed
  * for the creation of coins out of thin air modification could lead to a fork.
  * */
+#if defined(HAVE_CONFIG_H)
+#include "config/bitcoin-config.h"
+static const CAmount MAX_MONEY = MAINCOIN_MAX * COIN;
+#else
 static const CAmount MAX_MONEY = 210000000 * COIN;
+#endif
+
 inline bool MoneyRange(const CAmount& nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
-
-// 90 billion limit
-// static const CAmount TOKEN_MAX_MONEY = 90000000000 * COIN;
-// int64 upper limit
-static const CAmount TOKEN_MAX_MONEY = 9223372036854775807;
+static const CAmount TOKEN_MAX_MONEY = 1000000000000000001LL - 1LL;
 inline bool TokenMoneyRange(const CAmount& nValue) { return (nValue >= 0 && nValue <= TOKEN_MAX_MONEY); }
-
 // money range check.
 inline bool MoneyRange(const CAmount& nValue, const CAmount& nMaxMoney) { return (nValue >= 0 && nValue <= nMaxMoney); }
 
 class UniValue;
 extern CAmount AmountFromValue(const UniValue& value, const std::string& strCurrencySymbol);
 
-/**
- * Fee rate in satoshis per kilobyte: CAmount / kB
- */
 class CFeeRate
 {
-public:
+private:
     CAmount nSatoshisPerK; // unit is satoshis-per-1,000-bytes
 public:
     /** Fee rate of 0 satoshis per kB */
@@ -66,7 +62,6 @@ public:
      * Return the fee in satoshis for a size of 1000 bytes
      */
     CAmount GetFeePerK() const { return GetFee(1000); }
-
     friend bool operator<(const CFeeRate& a, const CFeeRate& b) { return a.nSatoshisPerK < b.nSatoshisPerK; }
     friend bool operator>(const CFeeRate& a, const CFeeRate& b) { return a.nSatoshisPerK > b.nSatoshisPerK; }
     friend bool operator==(const CFeeRate& a, const CFeeRate& b) { return a.nSatoshisPerK == b.nSatoshisPerK; }
@@ -78,22 +73,12 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(nSatoshisPerK);
-    }
+        inline void SerializationOp(Stream& s, Operation ser_action) {
+            READWRITE(nSatoshisPerK);
+        }
 };
 
-class CFeeRate_Gas : public CFeeRate
-{
-public:
-    explicit CFeeRate_Gas(const CAmount& _nSatoshisPerK): CFeeRate(_nSatoshisPerK) { }
-    /** Constructor for a fee rate in satoshis per kB. The size in bytes must not exceed (2^63 - 1)*/
-    CFeeRate_Gas(const CAmount& nFeePaid, size_t nBytes);
-    CFeeRate_Gas(const CFeeRate_Gas& other) { nSatoshisPerK = other.nSatoshisPerK; }
-
-    std::string ToString() const;
-};
-
-
+// Exchange gas to main COIN (1GAS = 1 CENT)
+inline CAmount ExchangeGASToDALI(const CAmount& nValue) { return nValue*CENT; }
 
 #endif //  BITCOIN_AMOUNT_H
