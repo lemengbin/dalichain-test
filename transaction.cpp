@@ -1,5 +1,6 @@
 #include "transaction.h"
 #include "univalue.h"
+#include "GlobalProfile.h"
 
 #define PARSE_JSON_SUCCESS       0
 #define PARSE_JSON_OBJECT_FAIL   1
@@ -435,7 +436,7 @@ bool CMutableGasToken::Empty() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), nBusinessType(BUSINESSTYPE_TRANSACTION), tokenParam(), bullockchainObject(), strPayCurrencySymbol("DALI"), nLockTime(0), gasToken(), txExch(NULL) {}
+CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), nBusinessType(BUSINESSTYPE_TRANSACTION), tokenParam(), bullockchainObject(), strPayCurrencySymbol(GlobalProfile::strPayCurrencySymbol), nLockTime(0), gasToken(), txExch(NULL) {}
 
 CTransaction::CTransaction(const CMutableTransaction& tx)
     : nVersion(tx.nVersion)
@@ -538,7 +539,7 @@ int32_t CTransaction::GetSubType() const
     return (nBusinessType & 0XFFFFFF00);
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nBusinessType(BUSINESSTYPE_TRANSACTION), tokenParam(), bullockchainObject(), strPayCurrencySymbol("DALI"), nLockTime(0), gasToken(), txExch(NULL) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nBusinessType(BUSINESSTYPE_TRANSACTION), tokenParam(), bullockchainObject(), strPayCurrencySymbol(GlobalProfile::strPayCurrencySymbol), nLockTime(0), gasToken(), txExch(NULL) {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx)
     : nVersion(tx.nVersion)
