@@ -28,6 +28,7 @@ static std::string LogTimestampStr(const std::string &str, std::atomic_bool *fSt
     if (*fStartedNewLine) {
         int64_t nTimeMicros = GetLogTimeMicros();
         strStamped = DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nTimeMicros/1000000);
+        strStamped += ' ' + str;
     } else
         strStamped = str;
 
@@ -49,6 +50,7 @@ int LogPrintStr(const std::string &str)
     // print to console
     ret = fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
     fflush(stdout);
+    return ret;
 }
 
 void FileCommit(FILE *file)
