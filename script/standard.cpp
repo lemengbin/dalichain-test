@@ -67,12 +67,75 @@ namespace
             return true;
         }
     };
+
+    class CScriptVisitorAppendToken : public boost::static_visitor<bool>
+    {
+    private:
+        CScript *script;
+    public:
+        CScriptVisitorAppendToken(CScript *scriptin) { script = scriptin; }
+
+        bool operator()(const CNoDestination &dest) const {
+            script->clear();
+            *script << OP_1 << OP_DROP;
+            return false;
+        }
+
+        bool operator()(const CKeyID &keyID) const {
+            script->clear();
+            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << OP_1 << OP_DROP;
+            return true;
+        }
+
+        bool operator()(const CScriptID &scriptID) const {
+            script->clear();
+            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL<< OP_1 << OP_DROP;
+            return true;
+        }
+
+        bool operator()(const CContractAddress &address) const {
+            script->clear();
+            *script << OP_DUP << OP_HASH160 << ToByteVector(address.GetData()) << OP_CONTRACTKEYID << OP_EQUALVERIFY << OP_CHECKSIG;
+            return true;
+        }
+
+        bool operator()(const CRealNameAddress &address) const {
+            script->clear();
+            CKeyID keyID;
+            address.GetKeyID(keyID);
+            *script << ToByteVector(keyID) << OP_CHECKREALNAMESIG << OP_1 << OP_DROP;
+            return true;
+        }
+
+        bool operator()(const CContractTXScript &contracTXScript) const {
+            script->clear();
+            if (CChainParams::Base58Type::SPA_CONTRACT_ADDRESS == contracTXScript.type ||
+                CChainParams::Base58Type::WNS_CONTRACT_ADDRESS == contracTXScript.type ||
+                CChainParams::Base58Type::REALNAME_SPA_CONTRACT_ADDRESS == contracTXScript.type ||
+                CChainParams::Base58Type::REALNAME_WNS_CONTRACT_ADDRESS == contracTXScript.type)
+            {
+                CContractAddress address = CContractAddress(contracTXScript.type, contracTXScript.keyID, contracTXScript.contractID);
+                *script << OP_DUP << OP_HASH160 << ToByteVector(contracTXScript.hash256) << OP_CHECKCONTRACT << OP_DUP << ToByteVector(address.GetData()) 
+                        << OP_EQUALVERIFY << OP_CONTRACTKEYID << OP_EQUALVERIFY << OP_CHECKSIG;
+            } else {
+                *script << ToByteVector(contracTXScript.hash256) << OP_CHECKCONTRACT;
+            }
+            return true;
+        }
+    };
 }
 
 CScript GetScriptForDestination(const CTxDestination& dest)
 {
     CScript script;
     boost::apply_visitor(CScriptVisitor(&script), dest);
+    return script;
+}
+
+CScript GetScriptForDestinationAppendToken(const CTxDestination& dest)
+{
+    CScript script;
+    boost::apply_visitor(CScriptVisitorAppendToken(&script), dest);
     return script;
 }
 

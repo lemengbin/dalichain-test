@@ -19,6 +19,8 @@
 #include "netmessagemaker.h"
 #include "ca/camempool.h"
 #include "attachinfo.h"
+#include "GlobalProfile.h"
+#include "consensus/merkle.h"
 
 using namespace std;
 
@@ -28,6 +30,7 @@ static CNet net;
 
 string CreateCommonTx(const UniValue& params);
 string CreateContractTx(const UniValue& params);
+string CreatePublishTx(const UniValue& params);
 
 UniValue ParseJsonFile(const string& strFile)
 {
@@ -52,11 +55,11 @@ string CreateRawTransaction(const int& nType, const string& strFile)
         case TX_TYPE::COMMON_TX:
             return CreateCommonTx(params);
         case TX_TYPE::EXCHANGE_TX:
-            //return CreateExchangeTx(strParams);
+            //return CreateExchangeTx(params);
         case TX_TYPE::PUBLISH_TX:
-            //return CreatePublishTx(strParams);
+            return CreatePublishTx(params);
         case TX_TYPE::MULTISIG_TX:
-            //return CreateMultiSigTx(strParams);
+            //return CreateMultiSigTx(params);
         case TX_TYPE::CONTRACT_TX:
             return CreateContractTx(params);
             break;
@@ -97,14 +100,12 @@ string CreateCommonTx(const UniValue& params)
 }
 
 extern uint256 GetContractHash(UniValue contractCall);
-uint256 GetContractHash(const std::string& contractCall)
+uint256 GetContractHash(const string& contractCall)
 {
     UniValue attach(UniValue::VOBJ);
     CAttachInfo mainattach;
-    std::cout << "contractCall: " << contractCall << std::endl;
     if(mainattach.read(contractCall) && !mainattach.isNull()) {
         attach = mainattach.getTypeObj(CAttachInfo::ATTACH_CONTRACT);
-        std::cout << "!!! " << attach.write() << std::endl;
         return GetContractHash(attach);
     } else {
         if (attach.read(contractCall)) {
@@ -115,7 +116,6 @@ uint256 GetContractHash(const std::string& contractCall)
                 }
             }
 
-            std::cout << "@@@ " << attach.write() << std::endl;
             return GetContractHash(attach);
         }
     }
@@ -172,11 +172,11 @@ string CreateContractTx(const UniValue& params)
         strSourceType = contract_info["sourceType"].get_str();
 
         strCode = contract_info["code"].get_str();
-        std::vector<unsigned char> vecCode = ParseHex(strCode);
+        vector<unsigned char> vecCode = ParseHex(strCode);
         CContractCodeID contractID(Hash160(vecCode.begin(), vecCode.end()));
 
         contractAddr.Set(base58Type, owner_keyid, contractID);
-        std::vector<unsigned char> vchContractAddress = contractAddr.GetData();
+        vector<unsigned char> vchContractAddress = contractAddr.GetData();
         uint256 hash = Hash(vchContractAddress.begin(), vchContractAddress.end());
 
         vector<unsigned char> vchSig;
@@ -251,15 +251,8 @@ string CreateContractTx(const UniValue& params)
             CContractCodeID contractID;
             contractAddr.GetContractID(contractID);
 
-            cout << "attach: " << strAttach << endl;
-            cout << "000: " << GetContractHash(strAttach).GetHex() << endl;
-            cout << "111: " << (CChainParams::Base58Type)contractAddr.GetBase58prefix() << endl;
-            cout << "222: " << HexStr(keyID) << endl;
-            cout << "333: " << HexStr(contractID) << endl;
-
             CContractTXScript contractTxScript(GetContractHash(strAttach), (CChainParams::Base58Type)contractAddr.GetBase58prefix(), keyID, contractID);
             scriptPubKey = GetScriptForDestination(contractTxScript);
-            cout << "scriptPubKey: " << HexStr(scriptPubKey) << endl;
             rawTx.vout.insert(rawTx.vout.begin(), CTxOut(nAmount, scriptPubKey));
         }
         else
@@ -271,6 +264,173 @@ string CreateContractTx(const UniValue& params)
     rawTx.strAttach = strAttach;
 
     return EncodeHexTx(rawTx);
+}
+
+int GetWitnessCommitmentIndex(CTransactionRef& tx)
+{
+    int commitpos = -1;
+    for (size_t o = 0; o < tx->vout.size(); o++) {
+        if (tx->vout[o].scriptPubKey.size() >= 38 && tx->vout[o].scriptPubKey[0] == OP_RETURN && tx->vout[o].scriptPubKey[1] == 0x24 && tx->vout[o].scriptPubKey[2] == 0xaa && tx->vout[o].scriptPubKey[3] == 0x21 && tx->vout[o].scriptPubKey[4] == 0xa9 && tx->vout[o].scriptPubKey[5] == 0xed) {
+            commitpos = o;
+        }
+    }
+    return commitpos;
+}
+
+void UpdateUncommittedTxStructures(CTransactionRef& ptx, const Consensus::Params& consensusParams)
+{
+    int commitpos = GetWitnessCommitmentIndex(ptx);
+    static const std::vector<unsigned char> nonce(32, 0x00);
+    if (commitpos != -1 && !ptx->HasWitness()) {
+        CMutableTransaction tx(*ptx);
+        tx.vin[0].scriptWitness.stack.resize(1);
+        tx.vin[0].scriptWitness.stack[0] = nonce;
+        ptx = MakeTransactionRef(std::move(tx));
+    }
+}
+
+vector<unsigned char> GenerateTokenCoinbaseCommitment(CTransactionRef& ptx, const Consensus::Params& consensusParams)
+{
+    vector<unsigned char> commitment;
+    int commitpos = GetWitnessCommitmentIndex(ptx);
+    vector<unsigned char> ret(32, 0x00);
+    if (consensusParams.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout != 0) {
+        if (commitpos == -1) {
+            uint256 witnessroot = TxWitnessMerkleRoot(NULL);
+            CHash256().Write(witnessroot.begin(), 32).Write(&ret[0], 32).Finalize(witnessroot.begin());
+            CTxOut out;
+            out.nValue = 0;
+            out.scriptPubKey.resize(38);
+            out.scriptPubKey[0] = OP_RETURN;
+            out.scriptPubKey[1] = 0x24;
+            out.scriptPubKey[2] = 0xaa;
+            out.scriptPubKey[3] = 0x21;
+            out.scriptPubKey[4] = 0xa9;
+            out.scriptPubKey[5] = 0xed;
+            memcpy(&out.scriptPubKey[6], witnessroot.begin(), 32);
+            commitment = vector<unsigned char>(out.scriptPubKey.begin(), out.scriptPubKey.end());
+            CMutableTransaction tx(*ptx);
+            tx.vout.push_back(out);
+            if (BUSINESSTYPE_TOKEN == tx.GetBusinessType() && TOKEN_CREATE == tx.tokenParam.nTokenType ){
+                CTxOut out;
+                if (tx.tokenParam.nValueLimit > 0) {
+                    out.nValue = tx.tokenParam.nValueLimit;
+                } else {
+                    out.nValue = TOKEN_MAX_MONEY;
+                }
+                out.scriptPubKey = tx.vout[0].scriptPubKey;
+            } else if (BUSINESSTYPE_TOKEN == tx.GetBusinessType() && TOKEN_APPEND == tx.tokenParam.nTokenType){
+
+            }
+            ptx = MakeTransactionRef(std::move(tx));
+        }
+    }
+    UpdateUncommittedTxStructures(ptx, consensusParams);
+    return commitment;
+}
+
+string CreatePublishTx(const UniValue& params)
+{
+    UniValue gasvin = params["gasvin"].get_array();
+    UniValue gasvout = params["gasvout"].get_obj();
+
+    string strTokenParams = params["token_params"].get_str();
+    vector<unsigned char> vchRet;
+    DecodeBase58(strTokenParams, vchRet);
+    string strTokenInfo = "";
+    strTokenInfo.insert(strTokenInfo.begin(), vchRet.begin(), vchRet.end());
+    UniValue tokenParams;
+    tokenParams.read(strTokenInfo);
+
+    string strTokenName = tokenParams["tokenName"].get_str();
+    string strOwnerAddr = tokenParams["address"].get_str();
+    CBitcoinAddress ownerAddr(strOwnerAddr);
+    CAmount nMaxAmount = -1 * COIN;
+    string strMaxAmount = tokenParams["maximum"].get_str();
+    if(strMaxAmount.find("-") == string::npos)
+        nMaxAmount = AmountFromValue(tokenParams["maximum"], strTokenName);
+    CAmount nAmount = AmountFromValue(tokenParams["number"], strTokenName);
+    bool fIncrease = true;
+    if(nMaxAmount > 0)
+        fIncrease = (nMaxAmount - nAmount) > 0;
+
+    CMutableTransaction rawTx;
+    rawTx.SetBusinessType(BUSINESSTYPE_TOKEN);
+    rawTx.tokenParam.nTokenType = TOKEN_CREATE;
+    rawTx.vin.resize(1);
+    rawTx.vin[0].prevout.SetNull();
+    rawTx.vin[0].scriptSig = CScript() << 0 << OP_0;
+    rawTx.vout.resize(1);
+    rawTx.vout[0].scriptPubKey = GetScriptForDestination(ownerAddr.Get());
+    rawTx.vout[0].nValue = nAmount;
+    rawTx.strPayCurrencySymbol = strTokenName;
+    rawTx.gasToken.strPayCurrencySymbol = GlobalProfile::strPayCurrencySymbol;
+    rawTx.tokenParam.nValueLimit = nMaxAmount;
+    rawTx.tokenParam.nAdditional = fIncrease ? TOKEN_ISSUANCE : TOKEN_NOISSUANCE;
+
+    if(fIncrease)
+    {
+        if(nMaxAmount < 0)
+            rawTx.vout.push_back(CTxOut(TOKEN_MAX_MONEY - nAmount, GetScriptForDestinationAppendToken(ownerAddr.Get())));
+        else if(nMaxAmount > nAmount)
+            rawTx.vout.push_back(CTxOut(nMaxAmount - nAmount, GetScriptForDestinationAppendToken(ownerAddr.Get())));
+    }
+
+    CAttachInfo attach;
+    UniValue obj(UniValue::VOBJ);
+    obj.push_back(Pair("hexString", strTokenParams));
+    attach.addAttach(CAttachInfo::ATTACH_PUBTOKEN, obj);
+    rawTx.strAttach = attach.write();
+
+    vector<CKey> vKey;
+    vector<CScript> vScriptPubKey;
+    for(unsigned int i = 0; i < gasvin.size(); i++)
+    {
+        const UniValue& gas_input = gasvin[i];
+        const UniValue& o = gas_input.get_obj();
+
+        CBitcoinSecret vchSecret;
+        if(!vchSecret.SetString(o["privkey"].get_str()))
+            throw std::ios_base::failure("Invalid private key");
+        vKey.push_back(vchSecret.GetKey());
+
+        vector<unsigned char> buf(ParseHex(o["scriptPubKey"].get_str()));
+        CScript scriptPubKey(buf.begin(), buf.end());
+        vScriptPubKey.push_back(scriptPubKey);
+
+        uint256 txid = uint256S(o["txid"].get_str());
+        int nOuttype = o["outtype"].get_int();
+        int n = o["vout"].get_int();
+        int nSequence = std::numeric_limits<uint32_t>::max() - 1;
+        rawTx.gasToken.vin.push_back(CTxIn(COutPoint(txid, (EnumTx)nOuttype, n), CScript(), nSequence));
+    }
+
+    vector<string> vAddress = gasvout.getKeys();
+    for(const string& strKey : vAddress)
+    {
+        CBitcoinAddress address(strKey);
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(gasvout[strKey], GlobalProfile::strPayCurrencySymbol);
+        rawTx.gasToken.vout.push_back(CTxOut(nAmount, scriptPubKey));
+    }
+
+    CTransactionRef tx(MakeTransactionRef(std::move(rawTx)));
+    GenerateTokenCoinbaseCommitment(tx, Params().GetConsensus());
+
+    CMutableTransaction mergedTx(*tx);
+    const CTransaction txConst(mergedTx);
+    for(unsigned int i = 0; i < mergedTx.gasToken.vin.size(); i++)
+    {
+        SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vKey[i]);
+        ProduceSignature(MutableTransactionSignatureCreator(&keystore, &mergedTx, i, EnumTx::TX_GAS, 0), vScriptPubKey[i], sigdata);
+        if(mergedTx.gasToken.vin.size() > i)
+            sigdata = CombineSignatures(vScriptPubKey[i], TransactionSignatureChecker(&txConst, i, EnumTx::TX_GAS, 0), sigdata, GasDataFromTransaction(mergedTx, i));
+        UpdateGasTransaction(mergedTx, i, sigdata);
+    }
+
+    return EncodeHexTx(mergedTx);
 }
 
 string SignRawTransaction(const string& strRawTx, const string& strFile)
@@ -316,7 +476,6 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
     const CTransaction txConst(mergedTx);
     for(unsigned int i = 0; i < mergedTx.vin.size(); i++)
     {
-        CTxIn& txin = mergedTx.vin[i];
         SignatureData sigdata;
         CBasicKeyStore keystore;
         keystore.AddKey(vKey[i]);
@@ -331,7 +490,7 @@ string SignRawTransaction(const string& strRawTx, const string& strFile)
     return EncodeHexTx(mergedTx);
 }
 
-string SendRawTransaction(const string& strRawTx, int& hSocket)
+string SendRawTransaction(const string& strRawTx, int& hSocket, bool fWitness)
 {
     vector<unsigned char> txData(ParseHex(strRawTx));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
@@ -348,7 +507,8 @@ string SendRawTransaction(const string& strRawTx, int& hSocket)
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
     const uint256& hashTx = tx->GetHash();
 
-    PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make(SERIALIZE_TRANSACTION_NO_WITNESS, "tx", *tx));
+    int nFlags = fWitness ? 0 : SERIALIZE_TRANSACTION_NO_WITNESS;
+    PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make(nFlags, "tx", *tx));
     return hashTx.GetHex();
 }
 
@@ -367,15 +527,16 @@ int main(int argc, char** argv)
     string strRawTx = CreateRawTransaction(nType, strFile);
     LogPrintf("raw: %s\n", strRawTx);
 
-    /*
-    strRawTx = SignRawTransaction(strRawTx, strFile);
-    LogPrintf("sign: %s\n", strRawTx);
+    if(nType != PUBLISH_TX)
+    {
+        strRawTx = SignRawTransaction(strRawTx, strFile);
+        LogPrintf("sign: %s\n", strRawTx);
+    }
 
     net.Start();
 
     sleep(2);
-    SendRawTransaction(strRawTx, net.hSocket);
-    */
+    SendRawTransaction(strRawTx, net.hSocket, nType == PUBLISH_TX);
 
     ECC_Stop();
 

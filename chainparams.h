@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "protocol.h"
+#include "consensus/params.h"
 
 class CChainParams
 {
@@ -28,36 +29,13 @@ public:
     };
 
 protected:
+    Consensus::Params consensus;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     CMessageHeader::MessageStartChars pchMessageStart;
 
 public:
-    CChainParams()
-    {
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
-        // base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
-        // base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
-        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
-
-
-        base58Prefixes[SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,90);
-        base58Prefixes[WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,91);
-        base58Prefixes[WNA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,92);
-        // for real-name
-        base58Prefixes[REALNAME_ADDRESS] = std::vector<unsigned char>(1,93);
-        base58Prefixes[REALNAME_SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,94);
-        base58Prefixes[REALNAME_WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,95);
-        base58Prefixes[REALNAME_WNA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,96);
-
-        pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xd9;
-    }
-
+    CChainParams();
+    const Consensus::Params& GetConsensus() const { return consensus; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
 };

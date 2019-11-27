@@ -47,6 +47,7 @@ public:
 
 typedef boost::variant<CNoDestination, CKeyID, CScriptID, CContractAddress, CRealNameAddress, CContractTXScript> CTxDestination;
 CScript GetScriptForDestination(const CTxDestination& dest);
+CScript GetScriptForDestinationAppendToken(const CTxDestination& dest);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);;
 
 #endif

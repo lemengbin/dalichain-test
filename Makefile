@@ -13,6 +13,8 @@ COMPRESS_OBJ = compress/CompressAlgorithmBase.o \
 
 CONFIG_INCLUDE = -I$(srcdir)/config
 
+CONSENSUS_OBJ = consensus/merkle.o
+
 CRYPTO_OBJ = crypto/aes.o \
              crypto/hmac_sha256.o \
              crypto/hmac_sha512.o \
@@ -70,6 +72,7 @@ OBJS = main.o \
        utilstrencodings.o \
        $(CA_OBJ) \
        $(COMPRESS_OBJ) \
+       $(CONSENSUS_OBJ) \
        $(CRYPTO_OBJ) \
        $(IPFS_OBJ) \
        $(SCRIPT_OBJ) \
@@ -134,6 +137,8 @@ compress/LZ4Compress.o : compress/LZ4Compress.cpp
 compress/SnappyCompress.o : compress/SnappyCompress.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 compress/ZLIBCompress.o : compress/ZLIBCompress.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+consensus/merkle.o : consensus/merkle.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 crypto/aes.o : crypto/aes.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
