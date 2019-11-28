@@ -350,6 +350,13 @@ string CreatePublishTx(const UniValue& params)
     if(strMaxAmount.find("-") == string::npos)
         nMaxAmount = AmountFromValue(tokenParams["maximum"], strTokenName);
     CAmount nAmount = AmountFromValue(tokenParams["number"], strTokenName);
+    if(strTokenName == GlobalProfile::strGasPayCurrencySymbol)
+    {
+        if(nMaxAmount > 0)
+            nMaxAmount *= COIN;
+        nAmount *= COIN;
+    }
+
     bool fIncrease = true;
     if(nMaxAmount > 0)
         fIncrease = (nMaxAmount - nAmount) > 0;
