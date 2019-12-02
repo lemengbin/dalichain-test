@@ -31,6 +31,7 @@ static CNet net;
 string CreateCommonTx(const UniValue& params);
 string CreateContractTx(const UniValue& params);
 string CreatePublishTx(const UniValue& params);
+string CreateExchangeTx(const UniValue& params);
 
 UniValue ParseJsonFile(const string& strFile)
 {
@@ -55,7 +56,7 @@ string CreateRawTransaction(const int& nType, const string& strFile)
         case TX_TYPE::COMMON_TX:
             return CreateCommonTx(params);
         case TX_TYPE::EXCHANGE_TX:
-            //return CreateExchangeTx(params);
+            return CreateExchangeTx(params);
         case TX_TYPE::PUBLISH_TX:
             return CreatePublishTx(params);
         case TX_TYPE::MULTISIG_TX:
@@ -440,6 +441,248 @@ string CreatePublishTx(const UniValue& params)
     return EncodeHexTx(mergedTx);
 }
 
+string CreateExchangeTx(const UniValue& params)
+{
+    // 1. create txExch
+    const UniValue& send_utxo = params["send_utxo"].get_obj();
+    const string& strSendSymbol = send_utxo["symbol"].get_str();
+    const UniValue& send_inputs = send_utxo["vin"].get_array();
+    const UniValue& send_sendTo = send_utxo["vout"].get_obj();
+
+    CMutableTransaction mtxExch;
+    mtxExch.strPayCurrencySymbol = strSendSymbol;
+    mtxExch.SetBusinessType(BUSINESSTYPE_TOKEN);
+    mtxExch.SetExchangeType(BUSINESSTYPE_EXCHANGE | BUSINESSTYPE_EXCHANGE_END);
+
+    vector<CKey> vSendKey;
+    vector<CScript> vSendScriptPubKey;
+    for(unsigned int i = 0; i < send_inputs.size(); i++)
+    {
+        const UniValue& input = send_inputs[i];
+        const UniValue& o = input.get_obj();
+        const uint256& txid = uint256S(o["txid"].get_str());
+        int nOuttype = o["outtype"].get_int();
+        int n = o["vout"].get_int();
+        int nSequence = std::numeric_limits<uint32_t>::max();
+
+        CBitcoinSecret vchSecret;
+        vchSecret.SetString(o["privkey"].get_str());
+        vSendKey.push_back(vchSecret.GetKey());
+
+        vector<unsigned char> buf(ParseHex(o["scriptPubKey"].get_str()));
+        CScript scriptPubKey(buf.begin(), buf.end());
+        vSendScriptPubKey.push_back(scriptPubKey);
+
+        mtxExch.vin.push_back(CTxIn(COutPoint(txid, (EnumTx)nOuttype, n), CScript(), nSequence));
+    }
+
+    vector<string> vSendAddress = send_sendTo.getKeys();
+    for(const string& strKey : vSendAddress)
+    {
+        CBitcoinAddress address(strKey);
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(send_sendTo[strKey], strSendSymbol);
+        mtxExch.vout.push_back(CTxOut(nAmount, scriptPubKey));
+    }
+
+    const string& strSendGasSymbol = send_utxo["gas_symbol"].get_str();
+    const UniValue& send_gasInputs = send_utxo["gasvin"].get_array();
+    const UniValue& send_gasSendTo = send_utxo["gasvout"].get_obj();
+
+    mtxExch.gasToken.strPayCurrencySymbol = strSendGasSymbol;
+
+    vector<CKey> vSendGasKey;
+    vector<CScript> vSendGasScriptPubKey;
+    for(unsigned int i = 0; i < send_gasInputs.size(); i++)
+    {
+        const UniValue& input = send_gasInputs[i];
+        const UniValue& o = input.get_obj();
+        const uint256& txid = uint256S(o["txid"].get_str());
+        int nOuttype = o["outtype"].get_int();
+        int n = o["vout"].get_int();
+        int nSequence = std::numeric_limits<uint32_t>::max();
+
+        CBitcoinSecret vchSecret;
+        vchSecret.SetString(o["privkey"].get_str());
+        vSendGasKey.push_back(vchSecret.GetKey());
+
+        vector<unsigned char> buf(ParseHex(o["scriptPubKey"].get_str()));
+        CScript scriptPubKey(buf.begin(), buf.end());
+        vSendGasScriptPubKey.push_back(scriptPubKey);
+
+        mtxExch.gasToken.vin.push_back(CTxIn(COutPoint(txid, (EnumTx)nOuttype, n), CScript(), nSequence));
+    }
+
+    vector<string> vSendGasAddress = send_gasSendTo.getKeys();
+    for(const string& strKey : vSendGasAddress)
+    {
+        CBitcoinAddress address(strKey);
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(send_gasSendTo[strKey], strSendGasSymbol);
+        mtxExch.gasToken.vout.push_back(CTxOut(nAmount, scriptPubKey));
+    }
+
+    // 2. create txMain
+    const UniValue& recv_utxo = params["recv_utxo"].get_obj();
+    const string& strRecvSymbol = recv_utxo["symbol"].get_str();
+    const UniValue& recv_inputs = recv_utxo["vin"].get_array();
+    const UniValue& recv_sendTo = recv_utxo["vout"].get_obj();
+
+    CMutableTransaction mtxMain;
+    mtxMain.strPayCurrencySymbol = strRecvSymbol;
+    mtxMain.SetBusinessType(BUSINESSTYPE_TOKEN);
+    mtxMain.SetExchangeType(BUSINESSTYPE_EXCHANGE);
+    mtxMain.txExch = std::move(MakeMutableTransactionRef(mtxExch));
+
+    vector<CKey> vRecvKey;
+    vector<CScript> vRecvScriptPubKey;
+    for(unsigned int i = 0; i < recv_inputs.size(); i++)
+    {
+        const UniValue& input = recv_inputs[i];
+        const UniValue& o = input.get_obj();
+        const uint256& txid = uint256S(o["txid"].get_str());
+        int nOuttype = o["outtype"].get_int();
+        int n = o["vout"].get_int();
+        int nSequence = std::numeric_limits<uint32_t>::max() - 1;
+
+        CBitcoinSecret vchSecret;
+        vchSecret.SetString(o["privkey"].get_str());
+        vRecvKey.push_back(vchSecret.GetKey());
+
+        vector<unsigned char> buf(ParseHex(o["scriptPubKey"].get_str()));
+        CScript scriptPubKey(buf.begin(), buf.end());
+        vRecvScriptPubKey.push_back(scriptPubKey);
+
+        mtxMain.vin.push_back(CTxIn(COutPoint(txid, (EnumTx)nOuttype, n), CScript(), nSequence));
+    }
+
+    vector<string> vRecvAddress = recv_sendTo.getKeys();
+    for(const string& strKey : vRecvAddress)
+    {
+        CBitcoinAddress address(strKey);
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(recv_sendTo[strKey], strRecvSymbol);
+        mtxMain.vout.push_back(CTxOut(nAmount, scriptPubKey));
+    }
+
+    const string& strRecvGasSymbol = recv_utxo["gas_symbol"].get_str();
+    const UniValue& recv_gasInputs = recv_utxo["gasvin"].get_array();
+    const UniValue& recv_gasSendTo = recv_utxo["gasvout"].get_obj();
+
+    mtxMain.gasToken.strPayCurrencySymbol = strRecvGasSymbol;
+
+    vector<CKey> vRecvGasKey;
+    vector<CScript> vRecvGasScriptPubKey;
+    for(unsigned int i = 0; i < recv_gasInputs.size(); i++)
+    {
+        const UniValue& input = recv_gasInputs[i];
+        const UniValue& o = input.get_obj();
+        const uint256& txid = uint256S(o["txid"].get_str());
+        int nOuttype = o["outtype"].get_int();
+        int n = o["vout"].get_int();
+        int nSequence = std::numeric_limits<uint32_t>::max() - 1;
+
+        CBitcoinSecret vchSecret;
+        vchSecret.SetString(o["privkey"].get_str());
+        vRecvGasKey.push_back(vchSecret.GetKey());
+
+        vector<unsigned char> buf(ParseHex(o["scriptPubKey"].get_str()));
+        CScript scriptPubKey(buf.begin(), buf.end());
+        vRecvGasScriptPubKey.push_back(scriptPubKey);
+
+        mtxMain.gasToken.vin.push_back(CTxIn(COutPoint(txid, (EnumTx)nOuttype, n), CScript(), nSequence));
+    }
+
+    vector<string> vRecvGasAddress = recv_gasSendTo.getKeys();
+    for(const string& strKey : vRecvGasAddress)
+    {
+        CBitcoinAddress address(strKey);
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(recv_gasSendTo[strKey], strRecvGasSymbol);
+        mtxMain.gasToken.vout.push_back(CTxOut(nAmount, scriptPubKey));
+    }
+
+    /*
+    for(unsigned int i = 0; i < mtxMain.vin.size(); i++)
+    {
+        SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vRecvKey[i]);
+        ProduceSignature(DummySignatureCreator(&keystore), vRecvScriptPubKey[i], sigdata);
+        UpdateTransaction(mtxMain, i, sigdata);
+    }
+    */
+
+    // 2. sign txMain
+    const CTransaction txMainConst(mtxMain);
+    for(unsigned int i = 0; i < txMainConst.vin.size(); i++)
+    {
+        SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vRecvKey[i]);
+        ProduceSignature(TransactionSignatureCreator(&keystore, &txMainConst, i, EnumTx::TX_TOKEN, 0), vRecvScriptPubKey[i], sigdata);
+        UpdateTransaction(mtxMain, i, sigdata);
+    }
+    for(unsigned int i = 0; i < txMainConst.gasToken.vin.size(); i++)
+    {
+        SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vRecvGasKey[i]);
+        ProduceSignature(TransactionSignatureCreator(&keystore, &txMainConst, i, EnumTx::TX_GAS, 0), vRecvGasScriptPubKey[i], sigdata);
+        UpdateGasTransaction(mtxMain, i, sigdata);
+    }
+
+    // 3. sign txExch
+    const CTransaction txMainTemp(mtxMain);
+    CExchangeTransactionSignatureSerializer signTemp(txMainTemp);
+
+    CHashWriter ss(SER_GETHASH, 0);
+    ss << signTemp;
+    mtxExch.theOtherHash = ss.GetHash();
+
+    const CTransaction txExchConst(mtxExch);
+    for(unsigned int i = 0; i < txExchConst.vin.size(); i++)
+    {
+        SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vSendKey[i]);
+        ProduceSignature(TransactionSignatureCreator(&keystore, &txExchConst, i, EnumTx::TX_TOKEN, 0), vSendScriptPubKey[i], sigdata);
+        UpdateTransaction(mtxExch, i, sigdata);
+    }
+    for(unsigned int i = 0; i < txExchConst.gasToken.vin.size(); i++)
+    {
+        SignatureData sigdata;
+        CBasicKeyStore keystore;
+        keystore.AddKey(vSendGasKey[i]);
+        ProduceSignature(TransactionSignatureCreator(&keystore, &txExchConst, i, EnumTx::TX_GAS, 0), vSendGasScriptPubKey[i], sigdata);
+        UpdateGasTransaction(mtxExch, i, sigdata);
+    }
+
+    mtxMain.txExch = std::move(MakeMutableTransactionRef(mtxExch));
+
+    /*
+    CTransaction txMainNew(mtxMain);
+    cout << "union: " << txMainNew.GetHash().GetHex() << endl;
+    cout << EncodeHexTx(txMainNew) << endl;
+
+    CMutableTransaction mtxHead(txMainNew);
+    CMutableTransaction mtxTail(*txMainNew.txExch);
+
+    mtxHead.txExch = NULL;
+    mtxTail.txExch = NULL;
+    mtxHead.nBusinessType |= BUSINESSTYPE_EXCHANGE_SINGLE;
+    mtxTail.nBusinessType |= BUSINESSTYPE_EXCHANGE_SINGLE;
+    mtxHead.theOtherHash = mtxTail.GetHash();
+    mtxTail.theOtherHash = mtxHead.GetHash();
+    cout << "head: " << mtxHead.GetHash().GetHex() << endl;
+    cout << "tail: " << mtxTail.GetHash().GetHex() << endl;
+    cout << "union: " << mtxMain.GetHash().GetHex() << endl;
+    cout << "union raw: " << EncodeHexTx(mtxMain) << endl;
+    */
+
+    return EncodeHexTx(mtxMain);
+}
+
 string SignRawTransaction(const string& strRawTx, const string& strFile)
 {
     vector<CMutableTransaction> txVariants;
@@ -534,7 +777,7 @@ int main(int argc, char** argv)
     string strRawTx = CreateRawTransaction(nType, strFile);
     LogPrintf("raw: %s\n", strRawTx);
 
-    if(nType != PUBLISH_TX)
+    if(nType != PUBLISH_TX || nType != EXCHANGE_TX)
     {
         strRawTx = SignRawTransaction(strRawTx, strFile);
         LogPrintf("sign: %s\n", strRawTx);
