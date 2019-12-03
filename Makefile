@@ -70,6 +70,12 @@ OBJS = main.o \
        uint256.o \
        util.o \
        utilstrencodings.o \
+       construct_tx.o \
+       common_tx.o \
+       publish_tx.o \
+       exchange_tx.o \
+       multisig_tx.o \
+       contract_tx.o \
        $(CA_OBJ) \
        $(COMPRESS_OBJ) \
        $(CONSENSUS_OBJ) \
@@ -125,6 +131,18 @@ uint256.o : uint256.cpp
 util.o : util.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 utilstrencodings.o : utilstrencodings.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+construct_tx.o : construct_tx.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+common_tx.o : common_tx.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+publish_tx.o : publish_tx.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+exchange_tx.o : exchange_tx.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+multisig_tx.o : multisig_tx.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
+contract_tx.o : contract_tx.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 ca/ca.o : ca/ca.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)

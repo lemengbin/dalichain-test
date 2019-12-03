@@ -1,5 +1,7 @@
 #include "util.h"
 
+#include <algorithm>
+#include <cctype>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 int64_t GetLogTimeMicros()
@@ -81,3 +83,7 @@ bool RenameOver(boost::filesystem::path src, boost::filesystem::path dest)
 #endif /* WIN32 */
 }
 
+void ToLowerCase(std::string& str)
+{
+    transform(str.begin(), str.end(), str.begin(), tolower);
+}

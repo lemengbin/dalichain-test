@@ -811,7 +811,7 @@ bool CCaMempool::Flush()
     catch (const std::exception& e) {
         return error("%s: Serialize or I/O error - %s", __func__, e.what());
     }
-    //FileCommit(fileout.Get());
+    FileCommit(fileout.Get());
     fileout.fclose();
 
     // replace existing certificates.dat, if any, with new certificates.dat.XXXX
