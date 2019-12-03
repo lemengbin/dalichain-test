@@ -201,6 +201,7 @@ clean:
 	rm *.o -rf
 	rm ca/*.o -rf
 	rm compress/*.o -rf
+	rm consensus/*.o -rf
 	rm crypto/*.o -rf
 	rm ipfsapi/src/*.o -rf
 	rm ipfsapi/src/http/*.o -rf
