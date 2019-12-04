@@ -50,7 +50,7 @@ int main(int argc, char** argv)
             Help();
             continue;
         }
-        else if(strCommand[0] < '1' || strCommand[0] > '5')
+        else if(strCommand.size() != 1 || strCommand[0] < '1' || strCommand[0] > '5')
         {
             cout << "Invalid command, retry..." << endl;
             continue;
