@@ -50,7 +50,7 @@ bool CreateTransaction(const string& strCommand, const string& strFile, int hSoc
     else if(nType == TX_TYPE::CONTRACT_TX)
         CreateContractTx(strRawTx, params);
 
-    return strRawTx.empty() && SendTransaction(strRawTx, hSocket, (nType == PUBLISH_TX));
+    return !strRawTx.empty() && SendTransaction(strRawTx, hSocket, (nType == PUBLISH_TX));
 }
 
 // build transaction
