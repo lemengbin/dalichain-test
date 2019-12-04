@@ -132,7 +132,6 @@ bool CreatePublishTx(string& strRawTx, const UniValue& params)
     // build raw tx
     CMutableTransaction mtx;
     mtx.strPayCurrencySymbol = strTokenName;
-    mtx.SetBusinessType(BUSINESSTYPE_TOKEN);
     mtx.tokenParam.nTokenType = TOKEN_CREATE;
     mtx.tokenParam.nValueLimit = nMaxAmount;
     mtx.tokenParam.nAdditional = fIncrease ? TOKEN_ISSUANCE : TOKEN_NOISSUANCE;

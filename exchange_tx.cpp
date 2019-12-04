@@ -8,7 +8,6 @@ static bool CreateTailTx(CMutableTransaction& mtx, const UniValue& params)
     if(!BuildTx(mtx, params))
         return false;
 
-    mtx.SetBusinessType(BUSINESSTYPE_TOKEN);
     mtx.SetExchangeType(BUSINESSTYPE_EXCHANGE | BUSINESSTYPE_EXCHANGE_END);
     return true;
 }
@@ -18,7 +17,6 @@ static bool CreateHeadTx(CMutableTransaction& mtx, const UniValue& params)
     if(!BuildTx(mtx, params))
         return false;
 
-    mtx.SetBusinessType(BUSINESSTYPE_TOKEN);
     mtx.SetExchangeType(BUSINESSTYPE_EXCHANGE);
     return true;
 }
