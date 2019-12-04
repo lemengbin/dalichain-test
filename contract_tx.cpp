@@ -175,9 +175,21 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
     {
         CTxOut& txout = mtx.vout[i];
         if(txout.scriptPubKey == CScript())
-            txout.scriptPubKey = contractScriptPubKey;
+        {
+            if(mtx.gasToken.vout.empty()) // non gasToken
+                txout.scriptPubKey = contractScriptPubKey;
+            else
+            {
+                if(i == 0) // first out must be contract address
+                    txout.scriptPubKey = GetScriptForDestination(CBitcoinAddress(contractAddr.ToString()).Get());
+                else
+                    txout.scriptPubKey = contractScriptPubKey;
+            }
+        }
         else
+        {
             break;
+        }
     }
 
     for(unsigned int i = 0; i < mtx.gasToken.vout.size(); i++)
@@ -200,6 +212,6 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
         return false;
 
     strRawTx = EncodeHexTx(mtx);
-    LogPrintf("create a new contract x: %s\n", mtx.GetHash().GetHex());
+    LogPrintf("create a new contract tx: %s\n", mtx.GetHash().GetHex());
     return true;
 }
