@@ -311,6 +311,8 @@ void ECC_Start() {
     }
 
     secp256k1_context_sign = ctx;
+
+    static ECCVerifyHandle globalVerifyHandle;
 }
 
 void ECC_Stop() {
