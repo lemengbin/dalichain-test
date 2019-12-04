@@ -157,8 +157,17 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
         return false;
 
     case TX_MULTISIG:
+        {
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
-        return (SignN(vSolutions, creator, scriptPubKey, ret, sigversion));
+        bool fRet = SignN(vSolutions, creator, scriptPubKey, ret, sigversion);
+        // delete reduplicate signdata, because of we change GetKey api
+        if(fRet)
+        {
+            sort(ret.begin(), ret.end());
+            ret.erase(unique(ret.begin(), ret.end()), ret.end());
+        }
+        return fRet;
+        }
 
     case TX_WITNESS_V0_KEYHASH:
         ret.push_back(vSolutions[0]);
@@ -383,6 +392,7 @@ static vector<valtype> CombineMultisig(const CScript& scriptPubKey, const BaseSi
     assert(vSolutions.size() > 1);
     unsigned int nSigsRequired = vSolutions.front()[0];
     unsigned int nPubKeys = vSolutions.size()-2;
+
     map<valtype, valtype> sigs;
     BOOST_FOREACH(const valtype& sig, allsigs)
     {
@@ -391,6 +401,11 @@ static vector<valtype> CombineMultisig(const CScript& scriptPubKey, const BaseSi
             const valtype& pubkey = vSolutions[i+1];
             if (sigs.count(pubkey))
                 continue; // Already got a sig for this pubkey
+            if (checker.CheckSig(sig, pubkey, scriptPubKey, sigversion))
+            {
+                sigs[pubkey] = sig;
+                break;
+            }
         }
     }
     // Now build a merged CScript:
