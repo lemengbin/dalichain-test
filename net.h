@@ -123,7 +123,7 @@ public:
     CNet();
     ~CNet();
 
-    bool Start(const std::string& strIPIn = "192.168.0.61", const unsigned short nPortIn = 9444);
+    bool Start(const std::string& strIPIn, const unsigned short nPortIn);
     bool Connect();
 };
 
