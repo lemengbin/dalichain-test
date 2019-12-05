@@ -40,9 +40,9 @@ SUPPORT_OBJ = support/cleanse.o \
               support/lockedpool.o
 
 UNIVALIE_INCLUDE = -I$(srcdir)/univalue/include
-UNIVALUE_OBJ = univalue/lib/univalue.o \
-               univalue/lib/univalue_read.o \
-               univalue/lib/univalue_write.o
+UNIVALUE_OBJ = univalue/src/univalue.o \
+               univalue/src/univalue_read.o \
+               univalue/src/univalue_write.o
 
 INCLUDES = $(LOCAL_INCLUDE) \
            $(COMPRESS_INCLUDE) \
@@ -190,11 +190,11 @@ support/cleanse.o : support/cleanse.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 support/lockedpool.o : support/lockedpool.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-univalue/lib/univalue.o : univalue/lib/univalue.cpp
+univalue/src/univalue.o : univalue/src/univalue.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-univalue/lib/univalue_read.o : univalue/lib/univalue_read.cpp
+univalue/src/univalue_read.o : univalue/src/univalue_read.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-univalue/lib/univalue_write.o : univalue/lib/univalue_write.cpp
+univalue/src/univalue_write.o : univalue/src/univalue_write.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 
 clean:
@@ -207,5 +207,5 @@ clean:
 	rm ipfsapi/src/http/*.o -rf
 	rm script/*.o -rf
 	rm support/*.o -rf
-	rm univalue/lib/*.o -rf
+	rm univalue/src/*.o -rf
 	rm test -rf
