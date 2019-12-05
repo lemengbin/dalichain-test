@@ -1,4 +1,4 @@
 *.o
-test
+tx_constructor
 .gitignore
 .*.swap
