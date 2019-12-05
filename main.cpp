@@ -5,6 +5,8 @@
 #include "util.h"
 #include "construct_tx.h"
 
+#define VERSION     "1.1"
+
 using namespace std;
 
 static CNet net;
@@ -14,11 +16,19 @@ void Help()
     cout << "Commands as below:" << endl;
     cout << "q(quit): Quit" << endl;
     cout << "h(? help): Print help information" << endl;
+    cout << "v(version): Print version information" << endl;
     cout << "1: Create a common transaction" << endl;
     cout << "2: Create a multisig transaction" << endl;
     cout << "3: Create a token publish transaction" << endl;
     cout << "4: Create a token exchange transaction" << endl;
     cout << "5: Create a contract transaction" << endl;
+}
+
+void Version()
+{
+    cout << "Version: " << VERSION << endl;
+    cout << "Copyright 2019-2030, Andy Le" << endl;
+    cout << "Contract us: lemengbin@163.com or mengbin.le@wealedger.com" << endl;
 }
 
 int main(int argc, char** argv)
@@ -50,6 +60,11 @@ int main(int argc, char** argv)
             Help();
             continue;
         }
+        else if(strCommand == "v" || strCommand == "version")
+        {
+            Version();
+            continue;
+        }
         else if(strCommand.size() != 1 || strCommand[0] < '1' || strCommand[0] > '5')
         {
             cout << "Invalid command, retry..." << endl;
@@ -62,6 +77,8 @@ int main(int argc, char** argv)
             break;
         else if(strCommand == "h" || strCommand == "?" || strCommand == "help")
             Help();
+        else if(strCommand == "v" || strCommand == "version")
+            Version();
         else if(strCommand == "1" || strCommand == "2" || strCommand == "3" || strCommand == "4" || strCommand == "5")
             CreateTransaction(strCommand, strFile, net.hSocket);
         else
