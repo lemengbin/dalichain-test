@@ -259,6 +259,7 @@ bool SignTxGasTokenPart(CMutableTransaction& mtx, const UniValue& params)
 
 bool SendTransaction(const string& strRawTx, int& hSocket, bool fWitness)
 {
+    LogPrintf("raw tx: %s\n", strRawTx);
     vector<unsigned char> txData(ParseHex(strRawTx));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
 
