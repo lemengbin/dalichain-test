@@ -139,7 +139,7 @@ LDFLAGS = $(SECP256K1_LDFLAG) \
 CXX = g++
 CXXFLAGS = -static -DHAVE_CONFIG_H -std=c++11
 
-test: $(OBJS)
+tx_constructor: $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(INCLUDES) $(LDFLAGS) $(LIBS)
 
 main.o : main.cpp
@@ -251,4 +251,4 @@ clean:
 	rm ipfsapi/src/http/*.o -rf
 	rm script/*.o -rf
 	rm support/*.o -rf
-	rm test -rf
+	rm tx_constructor -rf
