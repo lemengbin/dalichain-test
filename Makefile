@@ -2,6 +2,7 @@ srcdir=.
 
 LOCAL_INCLUDE = -I$(srcdir)
 
+# src
 CA_OBJ = ca/ca.o \
          ca/camempool.o
 
@@ -10,8 +11,6 @@ COMPRESS_OBJ = compress/CompressAlgorithmBase.o \
                compress/LZ4Compress.o \
                compress/SnappyCompress.o \
                compress/ZLIBCompress.o
-
-CONFIG_INCLUDE = -I$(srcdir)/config
 
 CONSENSUS_OBJ = consensus/merkle.o
 
@@ -33,23 +32,57 @@ SCRIPT_OBJ = script/standard.o \
              script/script.o \
              script/interpreter.o
 
-SECP256K1_INCLUDE = -I$(srcdir)/secp256k1/include
-SECP256K1_LIB = $(srcdir)/secp256k1/lib/libsecp256k1.a
-
 SUPPORT_OBJ = support/cleanse.o \
               support/lockedpool.o
 
-UNIVALIE_INCLUDE = -I$(srcdir)/univalue/include
-UNIVALUE_OBJ = univalue/src/univalue.o \
-               univalue/src/univalue_read.o \
-               univalue/src/univalue_write.o
+# dependence
+depsdir = $(srcdir)/deps
 
+BOOST_INCLUDE = -I$(depsdir)/boost/include
+BOOST_LDFLAG = -L$(depsdir)/boost/lib
+BOOST_LIB = -lboost_system -lboost_filesystem
+
+CURL_INCLUDE = -I$(depsdir)/curl/include
+CURL_LDFLAG = -L$(depsdir)/curl/lib
+CURL_LIB = -lcurl
+
+OPENSSL_INCLUDE = -I$(depsdir)/curl/include
+OPENSSL_LDFLAG = -L$(depsdir)/curl/lib
+OPENSSL_LIB = -lssl -lcrypto
+
+SECP256K1_INCLUDE = -I$(depsdir)/secp256k1/include
+SECP256K1_LDFLAG = -L$(depsdir)/secp256k1/lib
+SECP256K1_LIB = -lsecp256k1
+
+UNIVALUE_INCLUDE = -I$(depsdir)/univalue/include
+UNIVALUE_LDFLAG = -L$(depsdir)/univalue/lib
+UNIVALUE_LIB = -lunivalue
+
+LZ4_INCLUDE = -I$(depsdir)/lz4/include
+LZ4_LDFLAG = -L$(depsdir)/lz4/lib
+LZ4_LIB = -llz4
+
+SNAPPY_INCLUDE = -I$(depsdir)/snappy/include
+SNAPPY_LDFLAG = -L$(depsdir)/snappy/lib
+SNAPPY_LIB = -lsnappy
+
+ZLIB_INCLUDE = -I$(depsdir)/zlib/include
+ZLIB_LDFLAG = -L$(depsdir)/zlib/lib
+ZLIB_LIB = -lz
+
+# all
 INCLUDES = $(LOCAL_INCLUDE) \
            $(COMPRESS_INCLUDE) \
-           $(CONFIG_INCLUDE) \
            $(IPFS_INCLUDE) \
+           $(BOOST_INCLUDE) \
+           $(CURL_INCLUDE) \
+           $(OPENSSL_INCLUDE) \
            $(SECP256K1_INCLUDE) \
-           $(UNIVALIE_INCLUDE)
+           $(UNIVALUE_INCLUDE) \
+           $(LZ4_INCLUDE) \
+           $(SNAPPY_INCLUDE) \
+           $(ZLIB_INCLUDE)
+
 OBJS = main.o \
        amount.o \
        arith_uint256.o \
@@ -82,15 +115,32 @@ OBJS = main.o \
        $(CRYPTO_OBJ) \
        $(IPFS_OBJ) \
        $(SCRIPT_OBJ) \
-       $(SUPPORT_OBJ) \
-       $(UNIVALUE_OBJ)
+       $(SUPPORT_OBJ)
+
+LIBS = $(SECP256K1_LIB) \
+       $(BOOST_LIB) \
+       $(LZ4_LIB) \
+       $(SNAPPY_LIB) \
+       $(ZLIB_LIB) \
+       $(CURL_LIB) \
+       $(OPENSSL_LIB) \
+       $(UNIVALUE_LIB) \
+       -pthread -ldl
+
+LDFLAGS = $(SECP256K1_LDFLAG) \
+          $(BOOST_LDFLAG) \
+          $(LZ4_LDFLAG) \
+          $(SNAPPY_LDFLAG) \
+          $(ZLIB_LDFLAG) \
+          $(CURL_LDFLAG) \
+          $(OPENSSL_LDFLAG) \
+          $(UNIVALUE_LDFLAG)
 
 CXX = g++
-CXXFLAGS = -g -DHAVE_CONFIG_H -std=c++11
-LIBS = $(SECP256K1_LIB) -lboost_thread -lboost_system -lboost_filesystem -llz4 -lsnappy -lz -lcrypto -lssl -pthread -lcurl
+CXXFLAGS = -static -DHAVE_CONFIG_H -std=c++11
 
 test: $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LIBS) $(INCLUDES)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(INCLUDES) $(LDFLAGS) $(LIBS)
 
 main.o : main.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
@@ -190,12 +240,6 @@ support/cleanse.o : support/cleanse.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 support/lockedpool.o : support/lockedpool.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-univalue/src/univalue.o : univalue/src/univalue.cpp
-	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-univalue/src/univalue_read.o : univalue/src/univalue_read.cpp
-	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
-univalue/src/univalue_write.o : univalue/src/univalue_write.cpp
-	$(CXX) -c $< -o $@ $(CXXFLAGS) $(INCLUDES)
 
 clean:
 	rm *.o -rf
@@ -207,5 +251,4 @@ clean:
 	rm ipfsapi/src/http/*.o -rf
 	rm script/*.o -rf
 	rm support/*.o -rf
-	rm univalue/src/*.o -rf
 	rm test -rf
