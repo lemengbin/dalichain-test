@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/asio/ip/address.hpp>
 
 int64_t GetLogTimeMicros()
 {
@@ -86,4 +87,11 @@ bool RenameOver(boost::filesystem::path src, boost::filesystem::path dest)
 void ToLowerCase(std::string& str)
 {
     transform(str.begin(), str.end(), str.begin(), tolower);
+}
+
+bool IsValidIP(std::string& strIP)
+{
+    boost::system::error_code ec;
+    boost::asio::ip::address::from_string(strIP, ec);
+    return (!ec);
 }

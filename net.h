@@ -5,6 +5,7 @@
 #include <vector>
 #include <string.h>
 #include <arpa/inet.h>
+#include <thread>
 
 #include "serialize.h"
 #include "version.h"
@@ -116,11 +117,13 @@ public:
     unsigned short nPort;
 
     int hSocket;
+    std::thread* pSendThread;
+    std::thread* pRecvThread;
 
-    CNet(const std::string& strIPIn = "192.168.0.61", const unsigned short nPortIn = 9444);
+    CNet();
     ~CNet();
 
-    bool Start();
+    bool Start(const std::string& strIPIn = "192.168.0.61", const unsigned short nPortIn = 9444);
     bool Connect();
 };
 

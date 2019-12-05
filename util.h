@@ -45,5 +45,6 @@ bool ConvertStr2(std::string & str, T & val)
 void FileCommit(FILE *file);
 bool RenameOver(boost::filesystem::path src, boost::filesystem::path dest);
 void ToLowerCase(std::string& str);
+bool IsValidIP(std::string& strIP);
 
 #endif

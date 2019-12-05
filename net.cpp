@@ -9,7 +9,6 @@
 
 #include <iostream>
 #include <list>
-#include <thread>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -21,6 +20,10 @@
 using namespace std;
 
 static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 42 * 1000 * 1000;
+
+static std::atomic<bool> fStopThread(false);
+static std::atomic<bool> fRunSendThread(false);
+static std::atomic<bool> fRunRecvThread(false);
 
 bool CloseSocket(int& hSocket)
 {
@@ -107,8 +110,9 @@ bool SendMessage(int& hSocket)
 
     PushVersion(hSocket);
 
-    while(true)
+    while(!fStopThread)
     {
+        fRunSendThread = true;
         if(time(NULL) - nVersionTime >= 50)
         {
             PushMessage(hSocket, CNetMsgMaker(INIT_PROTO_VERSION).Make("verack"));
@@ -123,9 +127,10 @@ bool SendMessage(int& hSocket)
             PushMessage(hSocket, CNetMsgMaker(PROTOCOL_VERSION).Make("ping", nonce));
             nPingTime = time(NULL);
         }
-        sleep(10);
+        usleep(10000);
     }
 
+    fRunSendThread = false;
     return true;
 }
 
@@ -160,8 +165,9 @@ bool ParseRecvedMessage(const char* pchBuf, unsigned int nBytes)
 
 bool RecvMessage(int& hSocket)
 {
-    while(true)
+    while(!fStopThread)
     {
+        fRunRecvThread = true;
         char pchBuf[0x10000] = {0x00};
         int nBytes = recv(hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
         if(nBytes > 0 && !ParseRecvedMessage(pchBuf, nBytes))
@@ -184,8 +190,11 @@ bool RecvMessage(int& hSocket)
             }
             it = vRecvMsg.erase(it);
         }
+
+        usleep(10000);
     }
 
+    fRunRecvThread = false;
     return true;
 }
 
@@ -229,31 +238,54 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
     return nCopy;
 }
 
-CNet::CNet(const string& strIPIn, const unsigned short nPortIn)
-    : strIP(strIPIn), nPort(nPortIn)
+CNet::CNet()
 {
+    strIP = "0.0.0.0";
+    nPort = 9333;
     hSocket = -1;
+    pSendThread = NULL;
+    pRecvThread = NULL;
 }
 
 CNet::~CNet()
 {
+    fStopThread = true;
+
+    while(fRunSendThread || fRunRecvThread)
+        usleep(10000);
+
+    /*
+    if(pSendThread)
+    {
+        delete pSendThread;
+        pSendThread = NULL;
+    }
+
+    if(pRecvThread)
+    {
+        delete pRecvThread;
+        pRecvThread = NULL;
+    }
+    */
+
     CloseSocket(hSocket);
 }
 
-bool CNet::Start()
+bool CNet::Start(const string& strIPIn, const unsigned short nPortIn)
 {
+    strIP = strIPIn;
+    nPort = nPortIn;
+
+    if(!IsValidIP(strIP))
+        return error("Invalid remote node ip: %s\n", strIP);
+    if(nPortIn == 0)
+        return error("Invalid remote node port: %d\n", nPortIn);
+
     if(!Connect())
         return false;
 
-    //LogPrintf("Start thread: SendMessage RecvTread");
-    static thread sendThread(&SendMessage, ref(hSocket));
-    static thread recvThread(&RecvMessage, ref(hSocket));
-
-    /*
-    sendThread.join();
-    recvThread.join();
-    LogPrintf("End thread");
-    */
+    pSendThread = new thread(&SendMessage, ref(hSocket));
+    pRecvThread = new thread(&RecvMessage, ref(hSocket));
 
     return true;
 }
@@ -287,7 +319,7 @@ bool CNet::Connect()
     srvAddr.sin_addr.s_addr = inet_addr(strIP.c_str());
 
     if(connect(hSocket, (struct sockaddr*)&srvAddr, sizeof(srvAddr)) == -1)
-        return error("Connect to node failed %d", errno);
+        return error("Connect to node %s:%d failed %d", strIP, nPort, errno);
 
     return true;
 }

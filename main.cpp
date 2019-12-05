@@ -33,7 +33,13 @@ void Version()
 
 int main(int argc, char** argv)
 {
-    net.Start();
+    if(argc != 3)
+    {
+        cout << "Tx Constructor need remote node ip and port" << endl;
+        return 1;
+    }
+
+    net.Start(argv[1], (unsigned short)(atoi(argv[2])));
     ECC_Start();
 
     bool fFirst = true;
