@@ -38,8 +38,6 @@ SUPPORT_OBJ = support/cleanse.o \
 # dependence
 depsdir = $(srcdir)/deps
 
-BOOST_INCLUDE = -I$(depsdir)/boost/include
-BOOST_LDFLAG = -L$(depsdir)/boost/lib
 BOOST_LIB = -lboost_system -lboost_filesystem
 
 CURL_INCLUDE = -I$(depsdir)/curl/include
@@ -74,7 +72,6 @@ ZLIB_LIB = -lz
 INCLUDES = $(LOCAL_INCLUDE) \
            $(COMPRESS_INCLUDE) \
            $(IPFS_INCLUDE) \
-           $(BOOST_INCLUDE) \
            $(CURL_INCLUDE) \
            $(OPENSSL_INCLUDE) \
            $(SECP256K1_INCLUDE) \
@@ -128,7 +125,6 @@ LIBS = $(SECP256K1_LIB) \
        -pthread -ldl
 
 LDFLAGS = $(SECP256K1_LDFLAG) \
-          $(BOOST_LDFLAG) \
           $(LZ4_LDFLAG) \
           $(SNAPPY_LDFLAG) \
           $(ZLIB_LDFLAG) \
