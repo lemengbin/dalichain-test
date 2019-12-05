@@ -46,8 +46,8 @@ CURL_INCLUDE = -I$(depsdir)/curl/include
 CURL_LDFLAG = -L$(depsdir)/curl/lib
 CURL_LIB = -lcurl
 
-OPENSSL_INCLUDE = -I$(depsdir)/curl/include
-OPENSSL_LDFLAG = -L$(depsdir)/curl/lib
+OPENSSL_INCLUDE = -I$(depsdir)/openssl/include
+OPENSSL_LDFLAG = -L$(depsdir)/openssl/lib
 OPENSSL_LIB = -lssl -lcrypto
 
 SECP256K1_INCLUDE = -I$(depsdir)/secp256k1/include
