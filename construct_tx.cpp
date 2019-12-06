@@ -71,9 +71,9 @@ bool BuildTxBasicPart(CMutableTransaction& mtx, const UniValue& params)
     if(!params.exists("vout") || params["vout"].empty())
         return error("Missing vout");
 
-    string strSymbol = params["symbol"].get_str();
-    UniValue vin = params["vin"].get_array();
-    UniValue vout = params["vout"].get_obj();
+    const string& strSymbol = params["symbol"].get_str();
+    const UniValue& vin = params["vin"].get_array();
+    const UniValue& vout = params["vout"].get_obj();
 
     mtx.strPayCurrencySymbol = strSymbol;
 
@@ -88,7 +88,7 @@ bool BuildTxBasicPart(CMutableTransaction& mtx, const UniValue& params)
         if(!txin.exists("vout"))
             return error("Missing out index in vin[%d]", i);
 
-        const uint256& txid = uint256S(txin["txid"].get_str());
+        uint256 txid = uint256S(txin["txid"].get_str());
         int nOuttype = txin["outtype"].get_int();
         int n = txin["vout"].get_int();
         int nSequence = std::numeric_limits<uint32_t>::max();
@@ -101,11 +101,17 @@ bool BuildTxBasicPart(CMutableTransaction& mtx, const UniValue& params)
     const vector<UniValue>& vVoutValue = vout.getValues();
     for(unsigned int i = 0; i < vVoutKey.size(); i++)
     {
-        const string& strDestAddr = vVoutKey[i];
-        CBitcoinAddress destAddr(strDestAddr);
-        CScript scriptPubKey = GetScriptForDestination(destAddr.Get());
         CAmount nAmount = AmountFromValue(vVoutValue[i], strSymbol);
-        mtx.vout.push_back(CTxOut(nAmount, scriptPubKey));
+        const string& strDestAddr = vVoutKey[i];
+        if(strDestAddr == "contract") // txout of contract tx
+        {
+            mtx.vout.insert(mtx.vout.begin(), CTxOut(nAmount, CScript()));
+        }
+        else
+        {
+            CScript scriptPubKey = GetScriptForDestination(CBitcoinAddress(strDestAddr).Get());
+            mtx.vout.push_back(CTxOut(nAmount, scriptPubKey));
+        }
     }
 
     mtx.SetBusinessType(BUSINESSTYPE_TRANSACTION);
@@ -123,9 +129,9 @@ bool BuildTxGasTokenPart(CMutableTransaction& mtx, const UniValue& params)
         if(!params.exists("gas_vout") || params["gas_vout"].empty())
             return error("Missing gas vout");
 
-        string strGasSymbol = params["gas_symbol"].get_str();
-        UniValue gasVin = params["gas_vin"].get_array();
-        UniValue gasVout = params["gas_vout"].get_obj();
+        const string& strGasSymbol = params["gas_symbol"].get_str();
+        const UniValue& gasVin = params["gas_vin"].get_array();
+        const UniValue& gasVout = params["gas_vout"].get_obj();
 
         mtx.gasToken.strPayCurrencySymbol = strGasSymbol;
 
@@ -140,7 +146,7 @@ bool BuildTxGasTokenPart(CMutableTransaction& mtx, const UniValue& params)
             if(!txin.exists("vout"))
                 return error("Missing out index in gas vin[%d]", i);
 
-            const uint256& txid = uint256S(txin["txid"].get_str());
+            uint256 txid = uint256S(txin["txid"].get_str());
             int nOuttype = txin["outtype"].get_int();
             int n = txin["vout"].get_int();
             int nSequence = std::numeric_limits<uint32_t>::max();
@@ -153,11 +159,17 @@ bool BuildTxGasTokenPart(CMutableTransaction& mtx, const UniValue& params)
         const vector<UniValue>& vGasVoutValue = gasVout.getValues();
         for(unsigned int i = 0; i < vGasVoutKey.size(); i++)
         {
-            const string& strDestAddr = vGasVoutKey[i];
-            CBitcoinAddress destAddr(strDestAddr);
-            CScript scriptPubKey = GetScriptForDestination(destAddr.Get());
             CAmount nAmount = AmountFromValue(vGasVoutValue[i], strGasSymbol);
-            mtx.gasToken.vout.push_back(CTxOut(nAmount, scriptPubKey));
+            const string& strDestAddr = vGasVoutKey[i];
+            if(strDestAddr == "contract") // gas txout of contract tx
+            {
+                mtx.gasToken.vout.insert(mtx.gasToken.vout.begin(), CTxOut(nAmount, CScript()));
+            }
+            else
+            {
+                CScript scriptPubKey = GetScriptForDestination(CBitcoinAddress(strDestAddr).Get());
+                mtx.gasToken.vout.push_back(CTxOut(nAmount, scriptPubKey));
+            }
         }
 
         // change business type
@@ -180,7 +192,7 @@ bool SignTxBasicPart(CMutableTransaction& mtx, const UniValue& params)
 
     vector<CKey> vKey;
     vector<CScript> vScriptPubKey;
-    UniValue vin = params["vin"].get_array();
+    const UniValue& vin = params["vin"].get_array();
     for(unsigned int i = 0; i < vin.size(); i++)
     {
         const UniValue& txin = vin[i].get_obj();
@@ -223,7 +235,7 @@ bool SignTxGasTokenPart(CMutableTransaction& mtx, const UniValue& params)
         if(!params.exists("gas_vin") || !params["gas_vin"].isArray() || params["gas_vin"].empty())
             return error("Invalid gas vin, gas vin must be an array");
 
-        UniValue gasVin = params["gas_vin"].get_array();
+        const UniValue& gasVin = params["gas_vin"].get_array();
         for(unsigned int i = 0; i < gasVin.size(); i++)
         {
             const UniValue& txin = gasVin[i].get_obj();

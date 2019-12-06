@@ -48,7 +48,7 @@ bool CreateMultiSigTx(string& strRawTx, const UniValue& params)
 
     // prepare for sign
     vector<CScript> vScriptPubKey;
-    UniValue vin = params["vin"].get_array();
+    const UniValue& vin = params["vin"].get_array();
     for(unsigned int i = 0; i < vin.size(); i++)
     {
         const UniValue& txin = vin[i].get_obj();
@@ -63,7 +63,7 @@ bool CreateMultiSigTx(string& strRawTx, const UniValue& params)
     vector<CScript> vGasScriptPubKey;
     if(mtx.gasToken.vin.size() > 0)
     {
-        UniValue gasVin = params["gas_vin"].get_array();
+        const UniValue& gasVin = params["gas_vin"].get_array();
         for(unsigned int i = 0; i < gasVin.size(); i++)
         {
             const UniValue& txin = gasVin[i].get_obj();

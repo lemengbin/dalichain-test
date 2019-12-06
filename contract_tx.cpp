@@ -57,10 +57,17 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
     if(!params.exists("vout") || params["vout"].empty())
         return error("Missing vout");
 
-    UniValue contractParams = params["contract_params"].get_array();
+    const UniValue& contractParams = params["contract_params"].get_array();
 
     // parse contract params
     const UniValue& contractRequest = contractParams[0].get_obj();
+    if(!contractRequest.exists("address"))
+        return error("Missing address in contract request");
+    if(!contractRequest.exists("feeBackAddr"))
+        return error("Missing feeBackAddr in contract request");
+    if(!contractRequest.exists("params"))
+        return error("Missing params in contract request");
+
     const string& strContractAddr = contractRequest["address"].get_str();
     const string& strFeeBackAddr = contractRequest["feeBackAddr"].get_str();
     const UniValue& callFuncParams = contractRequest["params"].get_obj();
@@ -70,7 +77,6 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
         isCreate = true;
 
     CChainParams::Base58Type base58Type;
-    string strPrivKey = "";
     string strPubKey = "";
     string strSourceType = "";
     string strCode = "";
@@ -82,9 +88,18 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
     {
         // create contract
         const UniValue& contractInfo = contractParams[1].get_obj();
+        if(!contractInfo.exists("base58Type"))
+            return error("Missing base58Type in contract information");
+        if(!contractInfo.exists("owner_privkey"))
+            return error("Missing owner_privkey in contract information");
+        if(!contractInfo.exists("sourceType"))
+            return error("Missing sourceType in contract information");
+        if(!contractInfo.exists("code"))
+            return error("Missing code in contract information");
+
         base58Type = (CChainParams::Base58Type)contractInfo["base58Type"].get_int();
 
-        strPrivKey = contractInfo["owner_privkey"].get_str();
+        const string& strPrivKey = contractInfo["owner_privkey"].get_str();
         CBitcoinSecret vchSecret;
         vchSecret.SetString(strPrivKey);
 
@@ -108,10 +123,15 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
         vector<unsigned char> vchSig;
         key.Sign(hash, vchSig);
         strSig = HexStr(vchSig);
+
+        strFunc = "init";
     }
     else
     {
         // call contract
+        if(!contractRequest.exists("function"))
+            return error("Missing function in contract request");
+
         contractAddr = CContractAddress(contractRequest["address"].get_str());
         strFunc = contractRequest["function"].get_str();
     }
@@ -122,7 +142,6 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
         UniValue contract(UniValue::VOBJ);
         if(isCreate)
         {
-            strFunc = "init";
             contract.push_back(Pair("contractType", Params().Base58Prefix(base58Type)[0]));
             contract.push_back(Pair("pubKey", strPubKey));
             contract.push_back(Pair("sourceType", strSourceType));
@@ -176,13 +195,13 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
         CTxOut& txout = mtx.vout[i];
         if(txout.scriptPubKey == CScript())
         {
-            if(mtx.gasToken.vout.empty()) // non gasToken
+            if(mtx.gasToken.vout.empty()) // non gasToken, this out must be contract output
                 txout.scriptPubKey = contractScriptPubKey;
             else
             {
                 if(i == 0) // first out must be contract address
                     txout.scriptPubKey = GetScriptForDestination(CBitcoinAddress(contractAddr.ToString()).Get());
-                else
+                else // this out must be contract output
                     txout.scriptPubKey = contractScriptPubKey;
             }
         }
