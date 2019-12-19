@@ -5,7 +5,7 @@
 #include "util.h"
 #include "construct_tx.h"
 
-#define VERSION     "1.1"
+#define VERSION     "1.2"
 
 using namespace std;
 
@@ -26,69 +26,80 @@ void Help()
 
 void Version()
 {
-    cout << "Version: " << VERSION << endl;
+    cout << "Version: " << VERSION << ", update time: 2019-12-19" << endl;
     cout << "Copyright 2019-2030, Andy Le" << endl;
     cout << "Contract us: lemengbin@163.com or mengbin.le@wealedger.com" << endl;
 }
 
 int main(int argc, char** argv)
 {
-    if(argc != 3)
+    if(argc != 3 && argc != 5)
     {
-        cout << "Tx Constructor need remote node ip and port" << endl;
+        cout << "Tx Constructor need remote node ip and port (and optional command and optional json file)." << endl;
         return 1;
     }
 
     net.Start(argv[1], (unsigned short)(atoi(argv[2])));
     ECC_Start();
 
-    bool fFirst = true;
-    while(true)
+    if(argc == 3)
     {
-        if(fFirst)
+        cout << endl <<  "Welcome to use tx constructor console..." << endl;
+        while(true)
         {
             cout << "Please input command and json file: ";
-            fFirst = false;
+
+            string strCommand = "";
+            string strFile = "";
+
+            cin >> strCommand;
+
+            ToLowerCase(strCommand);
+            if(strCommand == "q" || strCommand == "quit")
+                break;
+            else if(strCommand == "h" || strCommand == "?" || strCommand == "help")
+            {
+                Help();
+                continue;
+            }
+            else if(strCommand == "v" || strCommand == "version")
+            {
+                Version();
+                continue;
+            }
+            else if(strCommand.size() != 1 || strCommand[0] < '1' || strCommand[0] > '5')
+            {
+                cout << "Invalid command, retry..." << endl;
+                continue;
+            }
+
+            cin >> strFile;
+
+            if(strCommand == "q" || strCommand == "quit")
+                break;
+            else if(strCommand == "h" || strCommand == "?" || strCommand == "help")
+                Help();
+            else if(strCommand == "v" || strCommand == "version")
+                Version();
+            else if(strCommand == "1" || strCommand == "2" || strCommand == "3" || strCommand == "4" || strCommand == "5")
+                CreateTransaction(strCommand, strFile, net.hSocket);
+            else
+                cout << "Invalid command, retry..." << endl;
         }
-        else
-            cout << endl << "Please input command and json file: ";
-
-        string strCommand = "";
-        string strFile = "";
-
-        cin >> strCommand;
-
+    }
+    else
+    {
+        string strCommand = argv[3];
         ToLowerCase(strCommand);
-        if(strCommand == "q" || strCommand == "quit")
-            break;
-        else if(strCommand == "h" || strCommand == "?" || strCommand == "help")
-        {
+
+        if(strCommand == "h" || strCommand == "?" || strCommand == "help")
             Help();
-            continue;
-        }
         else if(strCommand == "v" || strCommand == "version")
-        {
             Version();
-            continue;
-        }
         else if(strCommand.size() != 1 || strCommand[0] < '1' || strCommand[0] > '5')
-        {
-            cout << "Invalid command, retry..." << endl;
-            continue;
-        }
-
-        cin >> strFile;
-
-        if(strCommand == "q" || strCommand == "quit")
-            break;
-        else if(strCommand == "h" || strCommand == "?" || strCommand == "help")
-            Help();
-        else if(strCommand == "v" || strCommand == "version")
-            Version();
-        else if(strCommand == "1" || strCommand == "2" || strCommand == "3" || strCommand == "4" || strCommand == "5")
-            CreateTransaction(strCommand, strFile, net.hSocket);
+            cout << "Invalid command..." << endl;
         else
-            cout << "Invalid command, retry..." << endl;
+            CreateTransaction(argv[3], argv[4], net.hSocket);
     }
 
     ECC_Stop();

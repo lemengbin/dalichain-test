@@ -277,9 +277,9 @@ bool CNet::Start(const string& strIPIn, const unsigned short nPortIn)
     nPort = nPortIn;
 
     if(!IsValidIP(strIP))
-        return error("Invalid remote node ip: %s\n", strIP);
+        return error("Invalid remote node ip: %s", strIP);
     if(nPortIn == 0)
-        return error("Invalid remote node port: %d\n", nPortIn);
+        return error("Invalid remote node port: %d", nPortIn);
 
     if(!Connect())
         return false;
