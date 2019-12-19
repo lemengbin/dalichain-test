@@ -1,5 +1,6 @@
 #include "construct_tx.h"
 #include "core_io.h"
+#include "script/interpreter.h"
 
 using namespace std;
 
@@ -48,11 +49,18 @@ bool CreateExchangeTx(string& strRawTx, const UniValue& params)
     if(!SignTx(mtxMain, recv_params))
         return error("sign head tx of exchange tx failed");
 
+    // set theOtherHash of tail tx
+    const CTransaction txMainTemp(mtxMain);
+    CExchangeTransactionSignatureSerializer signTemp(txMainTemp);
+    CHashWriter ss(SER_GETHASH, 0);
+    ss << signTemp;
+    mtxExch.theOtherHash = ss.GetHash();
+
     // Sign tail tx
     if(!SignTx(mtxExch, send_params))
         return error("sign tail tx of exchange tx failed");
 
-    // last
+    // move tail tx to head tx
     mtxMain.txExch = std::move(MakeMutableTransactionRef(mtxExch));
 
     // split
