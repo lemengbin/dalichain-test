@@ -32,7 +32,13 @@ bool CreateTransaction(const string& strCommand, const string& strFile, int hSoc
 {
     UniValue params = ParseJsonFile(strFile);
     if(params.empty())
-        return error("Invalid json file");
+    {
+        UniValue tempJson;
+        if(!tempJson.read(strFile))
+            return error("Invalid json file or json string");
+
+        params = tempJson;
+    }
 
     if(strCommand.empty())
         return error("Invalid command");
