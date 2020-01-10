@@ -56,13 +56,14 @@ CChainParams::CChainParams()
 
 
     base58Prefixes[SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,90);
-    base58Prefixes[WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,91);
+    base58Prefixes[WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,218);
     base58Prefixes[WNA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,92);
     // for real-name
     base58Prefixes[REALNAME_ADDRESS] = std::vector<unsigned char>(1,93);
-    base58Prefixes[REALNAME_SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,94);
-    base58Prefixes[REALNAME_WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,95);
-    base58Prefixes[REALNAME_WNA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,96);
+    base58Prefixes[REALNAME_SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,140);
+    base58Prefixes[REALNAME_WNS_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,180);
+    base58Prefixes[REALNAME_WNA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,92);
+    base58Prefixes[SECRET_SPA_CONTRACT_ADDRESS] = std::vector<unsigned char>(1,243);
 
     pchMessageStart[0] = 0xf9;
     pchMessageStart[1] = 0xbe;

@@ -25,6 +25,8 @@ public:
         REALNAME_WNS_CONTRACT_ADDRESS, // The real-name whole network synchronize contract address.
         REALNAME_WNA_CONTRACT_ADDRESS, // The real-name whole network asynchronous contract address.
 
+        SECRET_SPA_CONTRACT_ADDRESS, // secret contract address for the certain node.
+
         MAX_BASE58_TYPES
     };
 
