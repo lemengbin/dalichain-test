@@ -169,7 +169,6 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
         strAttach = attachInfo.write();
     }
 
-
     // calc scriptPubkey of contract
     CScript contractScriptPubKey;
     {
@@ -189,35 +188,32 @@ bool CreateContractTx(string& strRawTx, const UniValue& params)
 
     BuildTx(mtx, params);
 
-    // modify vout
-    for(unsigned int i = 0; i < mtx.vout.size(); i++)
+    // modify vout & gas vout
+    const UniValue& vout = params["vout"].get_obj();
+    const vector<string>& vVoutKey = vout.getKeys();
+    for(unsigned int i = 0; i < vVoutKey.size(); i++)
     {
         CTxOut& txout = mtx.vout[i];
-        if(txout.scriptPubKey == CScript())
-        {
-            if(mtx.gasToken.vout.empty()) // non gasToken, this out must be contract output
-                txout.scriptPubKey = contractScriptPubKey;
-            else
-            {
-                if(i == 0) // first out must be contract address
-                    txout.scriptPubKey = GetScriptForDestination(CBitcoinAddress(contractAddr.ToString()).Get());
-                else // this out must be contract output
-                    txout.scriptPubKey = contractScriptPubKey;
-            }
-        }
-        else
-        {
-            break;
-        }
+        const string& strDestAddr = vVoutKey[i];
+        if(strDestAddr == "contract")
+            txout.scriptPubKey = contractScriptPubKey; // contract output
+        if(strDestAddr == "contract_input")
+            txout.scriptPubKey = GetScriptForDestination(CBitcoinAddress(contractAddr.ToString()).Get()); // contract address
     }
 
-    for(unsigned int i = 0; i < mtx.gasToken.vout.size(); i++)
+    if(mtx.gasToken.vout.size())
     {
-        CTxOut& txout = mtx.gasToken.vout[i];
-        if(txout.scriptPubKey == CScript())
-            txout.scriptPubKey = contractScriptPubKey;
-        else
-            break;
+        const UniValue& gasVout = params["gas_vout"].get_obj();
+        const vector<string>& vGasVoutKey = gasVout.getKeys();
+        for(unsigned int i = 0; i < vGasVoutKey.size(); i++)
+        {
+            CTxOut& txout = mtx.gasToken.vout[i];
+            const string& strDestAddr = vGasVoutKey[i];
+            if(strDestAddr == "contract")
+                txout.scriptPubKey = contractScriptPubKey; // contract output
+            if(strDestAddr == "contract_input")
+                txout.scriptPubKey = GetScriptForDestination(CBitcoinAddress(contractAddr.ToString()).Get()); // contract address
+        }
     }
 
     // modify business type

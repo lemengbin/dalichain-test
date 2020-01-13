@@ -109,9 +109,9 @@ bool BuildTxBasicPart(CMutableTransaction& mtx, const UniValue& params)
     {
         CAmount nAmount = AmountFromValue(vVoutValue[i], strSymbol);
         const string& strDestAddr = vVoutKey[i];
-        if(strDestAddr == "contract") // txout of contract tx
+        if(strDestAddr == "contract" || strDestAddr == "contract_input") // txout of contract tx
         {
-            mtx.vout.insert(mtx.vout.begin(), CTxOut(nAmount, CScript()));
+            mtx.vout.push_back(CTxOut(nAmount, CScript()));
         }
         else
         {
@@ -167,9 +167,9 @@ bool BuildTxGasTokenPart(CMutableTransaction& mtx, const UniValue& params)
         {
             CAmount nAmount = AmountFromValue(vGasVoutValue[i], strGasSymbol);
             const string& strDestAddr = vGasVoutKey[i];
-            if(strDestAddr == "contract") // gas txout of contract tx
+            if(strDestAddr == "contract" || strDestAddr == "contract_input") // gas txout of contract tx
             {
-                mtx.gasToken.vout.insert(mtx.gasToken.vout.begin(), CTxOut(nAmount, CScript()));
+                mtx.gasToken.vout.push_back(CTxOut(nAmount, CScript()));
             }
             else
             {
